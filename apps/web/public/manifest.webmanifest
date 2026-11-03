@@ -1,0 +1,22 @@
+{
+  "name": "Ultra Family OS",
+  "short_name": "Family OS",
+  "description": "Private modular platform for families",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#5B7CFA",
+  "lang": "ru",
+  "dir": "ltr",
+  "categories": ["family", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

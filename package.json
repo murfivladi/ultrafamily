@@ -1,0 +1,40 @@
+{
+  "name": "ultra-family-os",
+  "version": "0.1.0-stage-a",
+  "private": true,
+  "description": "Ultra Family OS — private, modular family platform",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "contracts:build": "npm run build -w @ufos/contracts",
+    "dev": "npm run contracts:build && concurrently -k -n API,WEB -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @ufos/api",
+    "dev:web": "npm run dev -w @ufos/web",
+    "build": "npm run contracts:build && npm run build -w @ufos/api && npm run build -w @ufos/web",
+    "start": "concurrently -k -n API,WEB -c blue,magenta \"npm:start:api\" \"npm:start:web\"",
+    "start:api": "npm run start:prod -w @ufos/api",
+    "start:web": "npm run start -w @ufos/web",
+    "test": "npm run test -w @ufos/contracts && npm run test -w @ufos/api && npm run typecheck -w @ufos/web",
+    "typecheck": "npm run contracts:build && npm run typecheck -w @ufos/api && npm run typecheck -w @ufos/web",
+    "format": "prettier --write \"{apps,packages,docs,scripts}/**/*.{ts,tsx,js,mjs,json,md,css}\"",
+    "format:check": "prettier --check \"{apps,packages,docs,scripts}/**/*.{ts,tsx,js,mjs,json,md,css}\"",
+    "db:backup": "bash scripts/backup.sh",
+    "db:restore": "bash scripts/restore.sh",
+    "release:package": "bash scripts/package-release.sh",
+    "deploy:sftp": "bash scripts/deploy-sftp.sh",
+    "smoke": "bash scripts/smoke.sh",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  }
+}
