@@ -25,6 +25,7 @@
 - удалённый каталог всегда `./`;
 - FTPS: по умолчанию явный `AUTH TLS`; `FTP_TLS_MODE=implicit` для TLS сразу на порту; TLS для control и data channel;
 - загрузка без `SITE CHMOD`/`MFF`: права файлов задаёт сервер, workflow не меняет permissions;
+- GitHub Artifact включает hidden files: `.next/` и `.env.example` не теряются между job'ами; `lftp` использует `ftp:list-options -a`;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 Workflow загружает **содержимое** двух GitHub Artifact напрямую в корень `./` каждого FTP-аккаунта; локальная папка `payload/` runner'а на FTP не создаётся. Старую `./artifact/` от предыдущих запусков удалите вручную: `mirror -R` не использует `--delete`.

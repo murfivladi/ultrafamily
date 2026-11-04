@@ -195,6 +195,20 @@ Workflow теперь:
 
 Если какому-то файлу нужен особый executable bit, выставьте его в панели хостинга/админке сервера, а не через FTP-деплой. Повторно запускать `chmod` в workflow не нужно.
 
+## Если frontend загрузил только `public/` и `.next/trace`
+
+Причина — скрытые файлы/папки. Папка Next.js `.next/` начинается с точки, а `actions/upload-artifact@v4` по умолчанию исключает hidden files и hidden directories [2](https://github.com/actions/upload-artifact/blob/v4/README.md). Кроме того, некоторые FTP-серверы не показывают dot-файлы в листинге; для этого `lftp` рекомендует `set ftp:list-options -a` [5](https://linux.die.net/man/1/lftp).
+
+Исправлено:
+
+- у обоих GitHub Artifact включён `include-hidden-files: true`;
+- в `path` явно исключены только реальные секреты `.env`, `.env.local`, `.env.*.local`, `node_modules/`, `.git/`; `.env.example`, `.next/**`, `.next/static/**` теперь попадают в artifact;
+- `lftp` получает `set ftp:list-options -a`;
+- вместо широких regex `--exclude .env` используются точные `--exclude-glob .env` и т.п., чтобы не вырезать `.env.example`;
+- package job и upload job проверяют `.next/trace`, `.next/static/`, `public/`, `.env.example` и собранный backend `dist/main.js`.
+
+После перезапуска в корне frontend FTP-аккаунта должны появиться не только `public/`, но и `./apps/web/.next/` целиком, `./apps/web/next.config.mjs`, `.env.example`, `ENV-SETUP.txt`, `package.json` и остальные файлы payload. Старые неполные файлы можно удалить вручную: `mirror -R` без `--delete` не чистит лишнее.
+
 ## Ограничения
 
 - FTPS-загрузка не даёт атомарного переключения `current`, health check и автоматического rollback; это делает админка сервера.
