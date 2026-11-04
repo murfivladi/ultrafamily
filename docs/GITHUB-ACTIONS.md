@@ -112,6 +112,18 @@ npm run start -w @ufos/web
 
 Пришлите строки ошибки `lftp` и обе безопасные диагностические строки без пароля, если проблема повторится.
 
+## Если пишет `500 SITE support is disabled`
+
+Это не ошибка пароля: `mirror -R` пытался скопировать локальные права доступа через `SITE CHMOD`/`MFF`, а хостинг отключил команду `SITE`. `SITE CHMOD` не является обязательной FTP-командой [5](https://forum.filezilla-project.org/viewtopic.php?t=49864), а `lftp` поддерживает `--no-perms` и `mirror:set-permissions off` [3](https://manpages.org/lftp).
+
+Workflow теперь:
+
+- не копирует chmod-биты: `mirror --no-perms --no-umask` и `set mirror:set-permissions no`;
+- отключает `SITE CHMOD`, `SITE UTIME` и перегруженный `MDTM`;
+- оставляет права, которые сервер назначает загруженным файлам по умолчанию.
+
+Если какому-то файлу нужен особый executable bit, выставьте его в панели хостинга/админке сервера, а не через FTP-деплой. Повторно запускать `chmod` в workflow не нужно.
+
 ## Ограничения
 
 - FTPS-загрузка не даёт атомарного переключения `current`, health check и автоматического rollback; это делает админка сервера.
