@@ -1,0 +1,71 @@
+name: ultra-family-os
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ufos}
+      POSTGRES_USER: ${POSTGRES_USER:-ufos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ufos} -d ${POSTGRES_DB:-ufos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      DB_DRIVER: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-ufos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ufos}
+      DATABASE_SSL: "false"
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      BOOTSTRAP_OWNER_EMAIL: ${BOOTSTRAP_OWNER_EMAIL:-owner@ultra.family}
+      BOOTSTRAP_OWNER_PASSWORD: ${BOOTSTRAP_OWNER_PASSWORD:?BOOTSTRAP_OWNER_PASSWORD is required}
+      APP_ORIGIN: ${APP_ORIGIN:-}
+      APP_VERSION: ${APP_VERSION:-0.1.0-stage-b}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ufos_files:/var/lib/ufos/files
+      - ./backups:/app/backups
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_DEMO_PASSWORD: ${NEXT_PUBLIC_DEMO_PASSWORD:-}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PROXY_ORIGIN: http://api:3001
+      APP_ORIGIN: ${APP_ORIGIN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+volumes:
+  postgres_data:
+  ufos_files:

@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /$
+Allow: /public/
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /catalog
+Disallow: /settings
+Disallow: /spaces
+Disallow: /sessions
+Disallow: /admin
+Disallow: /login
+# No public sitemap or RSS feed is generated in Stage B.

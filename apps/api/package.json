@@ -1,0 +1,39 @@
+{
+  "name": "@ufos/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch --preserveWatchOutput",
+    "build": "nest build && cp -r src/db/sql dist/db/sql",
+    "start:prod": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@nestjs/common": "11.2.8",
+    "@nestjs/core": "11.2.8",
+    "@nestjs/platform-express": "11.2.8",
+    "@ufos/contracts": "0.1.0",
+    "cookie-parser": "^1.4.7",
+    "pg": "^8.16.3",
+    "reflect-metadata": "^0.2.2",
+    "rrule": "^2.8.1",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.9",
+    "@nestjs/testing": "^11.2.8",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
+    "@types/pg": "^8.15.5",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  }
+}

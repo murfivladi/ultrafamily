@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/.data
+backups
+.env
+.env.*
+!.env.example
+*.log
+*.tgz
+.DS_Store

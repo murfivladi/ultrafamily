@@ -1,0 +1,207 @@
+name: FTP deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which payload to upload'
+        required: true
+        default: both
+        type: choice
+        options:
+          - backend
+          - frontend
+          - both
+      version:
+        description: 'Release version (default: tag name or short commit SHA)'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultra-family-os-ftp
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Build backend and frontend payloads
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Validate shell and Node scripts
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh; do bash -n "$script"; done
+          for script in scripts/*.mjs; do node --check "$script"; done
+
+      - name: Typecheck and tests
+        run: npm run check
+
+      - name: Resolve release version
+        id: meta
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          raw="$REQUESTED_VERSION"
+          if [ -z "$raw" ]; then
+            if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+              raw="${GITHUB_REF_NAME:-}"
+            else
+              raw="sha-${GITHUB_SHA:0:7}"
+            fi
+          fi
+          version="$(printf '%s' "$raw" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+          if [ -z "$version" ]; then
+            echo 'Could not derive a safe release version.' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build FTP payloads
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: npm run release:ftp -- "$VERSION"
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufos-ftp-backend-${{ steps.meta.outputs.version }}
+          path: releases/ftp/backend
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufos-ftp-frontend-${{ steps.meta.outputs.version }}
+          path: releases/ftp/frontend
+          if-no-files-found: error
+          retention-days: 14
+
+  upload_backend:
+    name: Upload backend over FTPS
+    needs: package
+    if: github.event_name == 'push' || inputs.target == 'backend' || inputs.target == 'both'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_TARGET: backend
+      FTP_HOST: ${{ vars.FTP_HOST || secrets.FTP_HOST }}
+      FTP_PORT: ${{ vars.FTP_BACKEND_PORT || vars.FTP_PORT || '2121' }}
+      FTP_USER: ${{ vars.FTP_BACKEND_USER || secrets.FTP_BACKEND_USER }}
+      FTP_PASSWORD: ${{ secrets.FTP_BACKEND_PASSWORD }}
+      FTP_VERIFY_CERT: ${{ vars.FTP_VERIFY_CERT || 'true' }}
+      RELEASE_VERSION: ${{ needs.package.outputs.version }}
+      APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
+      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
+      BOOTSTRAP_OWNER_EMAIL: ${{ vars.BOOTSTRAP_OWNER_EMAIL || '' }}
+    steps:
+      - name: Checkout upload scripts
+        uses: actions/checkout@v4
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ufos-ftp-backend-${{ needs.package.outputs.version }}
+          path: artifact
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Validate FTP settings
+        env:
+          LOCAL_DIR: artifact
+        run: |
+          set -euo pipefail
+          : "${FTP_HOST:?Set FTP_HOST as a variable or secret}"
+          : "${FTP_PORT:?Set FTP_PORT or FTP_BACKEND_PORT}"
+          : "${FTP_USER:?Set FTP_BACKEND_USER as a variable or secret}"
+          : "${FTP_PASSWORD:?Set FTP_BACKEND_PASSWORD as a secret}"
+          : "${RELEASE_VERSION:?Release version is missing}"
+          [[ "$FTP_PORT" =~ ^[0-9]+$ ]] || { echo 'FTP_PORT must be numeric.' >&2; exit 1; }
+          [[ "$FTP_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'FTP_HOST must be a bare hostname.' >&2; exit 1; }
+          [[ "$FTP_USER" =~ ^[A-Za-z0-9._@%+-]+$ ]] || { echo 'FTP_USER contains unsupported characters.' >&2; exit 1; }
+          [[ "$FTP_VERIFY_CERT" == 'true' || "$FTP_VERIFY_CERT" == 'false' ]] || { echo 'FTP_VERIFY_CERT must be true or false.' >&2; exit 1; }
+          test -d "$LOCAL_DIR"
+          test -f "$LOCAL_DIR/RELEASE.json"
+
+      - name: Upload backend
+        env:
+          LOCAL_DIR: artifact
+        run: bash scripts/ftp-upload.sh
+
+  upload_frontend:
+    name: Upload frontend over FTPS
+    needs: package
+    if: github.event_name == 'push' || inputs.target == 'frontend' || inputs.target == 'both'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_TARGET: frontend
+      FTP_HOST: ${{ vars.FTP_HOST || secrets.FTP_HOST }}
+      FTP_PORT: ${{ vars.FTP_FRONTEND_PORT || vars.FTP_PORT || '2121' }}
+      FTP_USER: ${{ vars.FTP_FRONTEND_USER || secrets.FTP_FRONTEND_USER }}
+      FTP_PASSWORD: ${{ secrets.FTP_FRONTEND_PASSWORD }}
+      FTP_VERIFY_CERT: ${{ vars.FTP_VERIFY_CERT || 'true' }}
+      RELEASE_VERSION: ${{ needs.package.outputs.version }}
+      APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
+      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
+      BOOTSTRAP_OWNER_EMAIL: ${{ vars.BOOTSTRAP_OWNER_EMAIL || '' }}
+    steps:
+      - name: Checkout upload scripts
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ufos-ftp-frontend-${{ needs.package.outputs.version }}
+          path: artifact
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Validate FTP settings
+        env:
+          LOCAL_DIR: artifact
+        run: |
+          set -euo pipefail
+          : "${FTP_HOST:?Set FTP_HOST as a variable or secret}"
+          : "${FTP_PORT:?Set FTP_PORT or FTP_FRONTEND_PORT}"
+          : "${FTP_USER:?Set FTP_FRONTEND_USER as a variable or secret}"
+          : "${FTP_PASSWORD:?Set FTP_FRONTEND_PASSWORD as a secret}"
+          : "${RELEASE_VERSION:?Release version is missing}"
+          [[ "$FTP_PORT" =~ ^[0-9]+$ ]] || { echo 'FTP_PORT must be numeric.' >&2; exit 1; }
+          [[ "$FTP_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'FTP_HOST must be a bare hostname.' >&2; exit 1; }
+          [[ "$FTP_USER" =~ ^[A-Za-z0-9._@%+-]+$ ]] || { echo 'FTP_USER contains unsupported characters.' >&2; exit 1; }
+          [[ "$FTP_VERIFY_CERT" == 'true' || "$FTP_VERIFY_CERT" == 'false' ]] || { echo 'FTP_VERIFY_CERT must be true or false.' >&2; exit 1; }
+          test -d "$LOCAL_DIR"
+          test -f "$LOCAL_DIR/RELEASE.json"
+
+      - name: Upload frontend
+        env:
+          LOCAL_DIR: artifact
+        run: bash scripts/ftp-upload.sh
