@@ -26,11 +26,14 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 | `FTP_FRONTEND_USER`     | variable или secret | пользователь frontend                                                        |
 | `FTP_FRONTEND_PASSWORD` | **secret**          | пароль frontend                                                              |
 | `FTP_VERIFY_CERT`       | variable            | `true` по умолчанию; `false` только для проверенного self-signed сертификата |
+| `FTP_TLS_MODE`          | variable            | `explicit` по умолчанию; `implicit` для TLS сразу на нестандартном порту     |
 | `APP_ORIGIN`            | variable            | необязательный внешний origin                                                |
 | `API_PROXY_ORIGIN`      | variable            | необязательный внутренний API origin для frontend                            |
 | `BOOTSTRAP_OWNER_EMAIL` | variable            | email первого владельца, по умолчанию `owner@ultra.family`                   |
 
-Используется явный FTPS: `ftp:ssl-force`, `ftp:ssl-protect-data`, passive mode. Обычный FTP и SSH в workflow не применяются.
+По умолчанию используется явный FTPS (`ftp://` + `AUTH TLS`): `ftp:ssl-force`, `ftp:ssl-protect-data`, passive mode. Если хостинг требует неявный FTPS, когда TLS начинается сразу на порту `2121`, установите `FTP_TLS_MODE=implicit` — workflow переключится на схему `ftps://`. Обычный FTP и SSH не применяются.
+
+Пароль передаётся только через `LFTP_PASSWORD` вместе с обязательным флагом `lftp --env-password`, а не в командной строке. Секреты должны быть созданы на уровне репозитория: **Settings → Secrets and variables → Actions → Secrets**. Если использовать Environment secrets, job должен явно ссылаться на этот environment.
 
 ## Запуск
 
@@ -91,6 +94,23 @@ npm run start -w @ufos/web
 ## Откат
 
 Запустите `ftp.yml` с предыдущей `version` и нужным `target`, либо загрузите сохранённый предыдущий artifact вручную. `mirror -R` не удаляет лишние файлы, поэтому перед откатом при необходимости очистите каталог релиза в админке сервера. Восстановление PostgreSQL выполняется отдельно по [BACKUP-RESTORE.md](BACKUP-RESTORE.md); workflow не трогает БД.
+
+## Если пишет «неверный пароль»
+
+Самая частая причина в этой конфигурации была исправлена: `LFTP_PASSWORD` без `--env-password` игнорируется `lftp`, поэтому сервер получал пустой/анонимный пароль. Теперь workflow вызывает `lftp --env-password`.
+
+Если ошибка осталась, проверьте по порядку:
+
+1. **Секрет на уровне репозитория**, а не только в Environment: `FTP_BACKEND_PASSWORD` и `FTP_FRONTEND_PASSWORD`.
+2. Пересохраните секрет без кавычек, пробелов в начале/конце и без завершающего перевода строки. Workflow теперь явно ругается на `
+`/`
+` и предупреждает о крайних пробелах.
+3. Убедитесь, что пара user/password соответствует выбранному `target`: backend secret не подходит к frontend пользователю и наоборот. Имя пользователя часто выглядит как `user@example.com` — вносите его целиком.
+4. В логах job смотрите строку `FTP settings:` и `FTPS diagnostics:`: там видны host, port, user, TLS mode, `password_length`, но не сам пароль.
+5. Проверьте режим TLS в панели хостинга. Для неявного FTPS установите variable `FTP_TLS_MODE=implicit`; для обычного `AUTH TLS` оставьте `explicit`.
+6. Для self-signed сертификата установите `FTP_VERIFY_CERT=false`; сначала убедитесь, что это действительно ваш хост.
+
+Пришлите строки ошибки `lftp` и обе безопасные диагностические строки без пароля, если проблема повторится.
 
 ## Ограничения
 

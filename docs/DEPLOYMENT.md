@@ -23,7 +23,7 @@
 - разные пользователи и пароли для backend и frontend;
 - порт по умолчанию `2121`;
 - удалённый каталог всегда `./`;
-- FTPS с принудительным TLS для control и data channel;
+- FTPS: по умолчанию явный `AUTH TLS`; `FTP_TLS_MODE=implicit` для TLS сразу на порту; TLS для control и data channel;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит `.next`, `public`, `next.config.mjs`, contracts и manifests. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
