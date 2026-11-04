@@ -128,7 +128,7 @@ export default function LoginPage() {
         <section className="uf-hero relative overflow-hidden p-8 md:p-12">
           <span className="uf-hero-glow uf-decor" aria-hidden="true" />
           <div className="relative">
-            <Badge tone="accent">Stage A · {t('common.foundation')}</Badge>
+            <Badge tone="accent">{t('stageB.badge')}</Badge>
             <h1 className="mt-6 max-w-xl text-4xl font-black leading-tight tracking-tight md:text-5xl">
               {t('login.title')}
             </h1>

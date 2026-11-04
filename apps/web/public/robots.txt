@@ -9,4 +9,4 @@ Disallow: /spaces
 Disallow: /sessions
 Disallow: /admin
 Disallow: /login
-# No public sitemap or RSS feed is generated in Stage A.
+# No public sitemap or RSS feed is generated in Stage B.

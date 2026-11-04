@@ -40,7 +40,7 @@ cat > "$WORK/bundle/manifest.json" <<EOF
 {
   "product": "Ultra Family OS",
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "version": "${APP_VERSION:-0.1.0-stage-a}",
+  "version": "${APP_VERSION:-0.1.0-stage-b}",
   "databaseFormat": "pg_dump custom",
   "fileArchive": "files.tar.gz"
 }

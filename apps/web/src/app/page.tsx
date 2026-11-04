@@ -118,7 +118,7 @@ export default function PublicHomePage() {
                 {demoMode ? (
                   <p className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
                     <Lucide.FlaskConical className="h-4 w-4" aria-hidden="true" />
-                    Stage A · {t('common.foundation')}
+                    {t('stageB.badge')}
                   </p>
                 ) : null}
               </div>
@@ -179,7 +179,7 @@ export default function PublicHomePage() {
                 <h2 className="mt-5 text-lg font-bold">{feature.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{feature.text}</p>
                 <Badge tone={feature.tone} className="mt-4">
-                  Stage A
+                  {t('stageB.badge')}
                 </Badge>
               </Card>
             ))}
