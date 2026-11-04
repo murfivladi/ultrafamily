@@ -12,8 +12,13 @@ set -euo pipefail
 : "${RELEASE_VERSION:?RELEASE_VERSION is required}"
 
 FTP_VERIFY_CERT="${FTP_VERIFY_CERT:-true}"
+FTP_TLS_MODE="${FTP_TLS_MODE:-explicit}"
 if [[ "$FTP_TARGET" != 'backend' && "$FTP_TARGET" != 'frontend' ]]; then
   echo 'FTP_TARGET must be backend or frontend.' >&2
+  exit 1
+fi
+if [[ "$FTP_TLS_MODE" != 'explicit' && "$FTP_TLS_MODE" != 'implicit' ]]; then
+  echo 'FTP_TLS_MODE must be explicit or implicit.' >&2
   exit 1
 fi
 if [[ "$FTP_PORT" != [0-9]* ]]; then
@@ -28,9 +33,30 @@ if [[ "$FTP_VERIFY_CERT" != 'true' && "$FTP_VERIFY_CERT" != 'false' ]]; then
   echo 'FTP_VERIFY_CERT must be true or false.' >&2
   exit 1
 fi
+if [[ "$FTP_USER" =~ [[:space:]] ]]; then
+  echo 'FTP_USER contains leading, trailing or embedded whitespace.' >&2
+  exit 1
+fi
+case "$FTP_PASSWORD" in
+  *$'\r'* | *$'\n'*)
+    echo 'FTP_PASSWORD contains a line break. Recreate the GitHub Secret without a trailing newline.' >&2
+    exit 1
+    ;;
+esac
+if [[ "$FTP_PASSWORD" =~ ^[[:space:]] || "$FTP_PASSWORD" =~ [[:space:]]$ ]]; then
+  echo 'WARNING: FTP_PASSWORD begins or ends with whitespace. Recreate the GitHub Secret if this was accidental.' >&2
+fi
 if [[ ! -d "$LOCAL_DIR" ]]; then
   echo "Local payload directory not found: $LOCAL_DIR" >&2
   exit 1
+fi
+
+echo "FTPS diagnostics: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE remote=./ verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
+
+if [[ "$FTP_TLS_MODE" == 'implicit' ]]; then
+  FTP_SITE="ftps://$FTP_HOST"
+else
+  FTP_SITE="ftp://$FTP_HOST"
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,18 +74,23 @@ chmod 600 "$GENERATED"
 lftp_common() {
   cat <<EOF
 set cmd:fail-exit yes
-set ftp:ssl-force true
-set ftp:ssl-protect-data true
 set ftp:passive-mode true
 set ssl:verify-certificate $FTP_VERIFY_CERT
 set net:max-retries 3
 set net:timeout 20
 set xfer:clobber true
 EOF
+  if [[ "$FTP_TLS_MODE" == 'explicit' ]]; then
+    printf '%s\n' 'set ftp:ssl-force true' 'set ftp:ssl-protect-data true' 'set ftp:ssl-auth TLS'
+  else
+    printf '%s\n' 'set ftp:ssl-protect-data true'
+  fi
 }
 
+# LFTP_PASSWORD alone is ignored by lftp: --env-password is mandatory.
+# This keeps the password out of the command line and process listing.
 run_lftp() {
-  LFTP_PASSWORD="$FTP_PASSWORD" lftp -u "$FTP_USER" -p "$FTP_PORT" "ftp://$FTP_HOST"
+  LFTP_PASSWORD="$FTP_PASSWORD" lftp --env-password -u "$FTP_USER" -p "$FTP_PORT" "$FTP_SITE"
 }
 
 echo "Checking FTPS connection and remote root listing for $FTP_TARGET..."

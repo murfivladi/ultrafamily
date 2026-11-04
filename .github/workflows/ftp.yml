@@ -115,6 +115,7 @@ jobs:
       FTP_USER: ${{ vars.FTP_BACKEND_USER || secrets.FTP_BACKEND_USER }}
       FTP_PASSWORD: ${{ secrets.FTP_BACKEND_PASSWORD }}
       FTP_VERIFY_CERT: ${{ vars.FTP_VERIFY_CERT || 'true' }}
+      FTP_TLS_MODE: ${{ vars.FTP_TLS_MODE || 'explicit' }}
       RELEASE_VERSION: ${{ needs.package.outputs.version }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
       API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
@@ -146,6 +147,17 @@ jobs:
           [[ "$FTP_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'FTP_HOST must be a bare hostname.' >&2; exit 1; }
           [[ "$FTP_USER" =~ ^[A-Za-z0-9._@%+-]+$ ]] || { echo 'FTP_USER contains unsupported characters.' >&2; exit 1; }
           [[ "$FTP_VERIFY_CERT" == 'true' || "$FTP_VERIFY_CERT" == 'false' ]] || { echo 'FTP_VERIFY_CERT must be true or false.' >&2; exit 1; }
+          [[ "$FTP_TLS_MODE" == 'explicit' || "$FTP_TLS_MODE" == 'implicit' ]] || { echo 'FTP_TLS_MODE must be explicit or implicit.' >&2; exit 1; }
+          case "$FTP_PASSWORD" in
+            *$'\r'* | *$'\n'*)
+              echo 'The FTP password contains a line break. Recreate the GitHub Secret without a trailing newline.' >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$FTP_PASSWORD" =~ ^[[:space:]] || "$FTP_PASSWORD" =~ [[:space:]]$ ]]; then
+            echo '::warning::The FTP password begins or ends with whitespace. Recreate the GitHub Secret if this was accidental.'
+          fi
+          echo "FTP settings: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
           test -d "$LOCAL_DIR"
           test -f "$LOCAL_DIR/RELEASE.json"
 
@@ -167,6 +179,7 @@ jobs:
       FTP_USER: ${{ vars.FTP_FRONTEND_USER || secrets.FTP_FRONTEND_USER }}
       FTP_PASSWORD: ${{ secrets.FTP_FRONTEND_PASSWORD }}
       FTP_VERIFY_CERT: ${{ vars.FTP_VERIFY_CERT || 'true' }}
+      FTP_TLS_MODE: ${{ vars.FTP_TLS_MODE || 'explicit' }}
       RELEASE_VERSION: ${{ needs.package.outputs.version }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
       API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
@@ -198,6 +211,17 @@ jobs:
           [[ "$FTP_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'FTP_HOST must be a bare hostname.' >&2; exit 1; }
           [[ "$FTP_USER" =~ ^[A-Za-z0-9._@%+-]+$ ]] || { echo 'FTP_USER contains unsupported characters.' >&2; exit 1; }
           [[ "$FTP_VERIFY_CERT" == 'true' || "$FTP_VERIFY_CERT" == 'false' ]] || { echo 'FTP_VERIFY_CERT must be true or false.' >&2; exit 1; }
+          [[ "$FTP_TLS_MODE" == 'explicit' || "$FTP_TLS_MODE" == 'implicit' ]] || { echo 'FTP_TLS_MODE must be explicit or implicit.' >&2; exit 1; }
+          case "$FTP_PASSWORD" in
+            *$'\r'* | *$'\n'*)
+              echo 'The FTP password contains a line break. Recreate the GitHub Secret without a trailing newline.' >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$FTP_PASSWORD" =~ ^[[:space:]] || "$FTP_PASSWORD" =~ [[:space:]]$ ]]; then
+            echo '::warning::The FTP password begins or ends with whitespace. Recreate the GitHub Secret if this was accidental.'
+          fi
+          echo "FTP settings: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
           test -d "$LOCAL_DIR"
           test -f "$LOCAL_DIR/RELEASE.json"
 
