@@ -1,140 +1,108 @@
 # Деплой, обновление и откат
 
-## Локальная разработка и превью
+Этот документ описывает текущий сценарий Stage B: **только загрузка готовых backend/frontend файлов через FTPS из GitHub Actions**. SSH/SCP, SFTP-деплой, Docker Compose runtime и удалённые shell-команды в автоматизации не используются. Workflow не перезапускает процессы, не запускает миграции вручную, не делает backup/health/smoke/rollback и не трогает PostgreSQL.
 
-```bash
-npm install
-npm run dev
+Подробная настройка GitHub Actions: [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md). Полный runtime/API: [ARCHITECTURE.md](ARCHITECTURE.md) и [API.md](API.md).
+
+## Состав
+
+| Компонент                                 | Назначение                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `.github/workflows/ci.yml`                | форматирование, синтаксис скриптов, тесты, typecheck, build               |
+| `.github/workflows/ftp.yml`               | один workflow с `target: backend \| frontend \| both`                     |
+| `scripts/package-ftp.sh`                  | два отдельных payload'а: `releases/ftp/backend` и `releases/ftp/frontend` |
+| `scripts/ftp-upload.sh`                   | FTPS-загрузка в `./` и merge-only-missing `.env`                          |
+| `.env.example`                            | шаблон всех переменных окружения                                          |
+| `scripts/backup.sh`, `scripts/restore.sh` | ручной backup/restore PostgreSQL, не часть Actions                        |
+
+Удалённые SSH/SFTP-скрипты и workflow не входят в деплой. Файлы `Dockerfile.*` и `docker-compose.yml` остаются в репозитории как альтернативные артефакты, но в этом сценарии не запускаются.
+
+## FTP-доступ
+
+- один FTP-хост;
+- разные пользователи и пароли для backend и frontend;
+- порт по умолчанию `2121`;
+- удалённый каталог всегда `./`;
+- FTPS с принудительным TLS для control и data channel;
+- переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
+
+Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит `.next`, `public`, `next.config.mjs`, contracts и manifests. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
+
+## `.env`
+
+Канонический `.env` лежит в **корне каждого FTP-релиза**. API и Next.js config ищут его от текущего каталога вверх; отдельные `apps/api/.env` и `apps/web/.env` не нужны.
+
+Автоматически генерируются и дописываются только отсутствующие ключи:
+
+- общие: `NODE_ENV`, `APP_VERSION`, при наличии `APP_ORIGIN`;
+- backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`;
+- frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PROXY_ORIGIN`.
+
+Существующие строки, комментарии и вручную введённые значения не перезаписываются. Сгенерированный `BOOTSTRAP_OWNER_PASSWORD` можно прочитать в `.env` на FTP; он не выводится в логи GitHub.
+
+Вы сами вводите installation-specific значения, например:
+
+```dotenv
+DATABASE_URL=postgres://…
+APP_ORIGIN=https://family.example
+API_PROXY_ORIGIN=http://127.0.0.1:3001
 ```
 
-Поднимаются:
+Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
-- `0.0.0.0:3000` — Next.js;
-- `0.0.0.0:3001` — NestJS API;
-- `apps/api/.data/pglite` — локальная development БД.
+## Первый запуск
 
-`npm run dev` собирает общий contracts package до запуска. Next.js `allowedDevOrigins` разрешает `*.e2b.app` для Arena preview. В браузере используются только относительные `/api/*`.
-
-## GitHub Actions
-
-Готовые workflow находятся в `.github/workflows/`. Подробная настройка Environment, секретов, SSH-ключа, backup и атомарного переключения `current` описана в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
-
-## Production через Docker Compose
-
-Поддерживается, если у VPS есть SSH-доступ и Docker. Проверьте это у Vladhost до выбора схемы.
-
-1. Создайте `.env` на сервере по образцу `.env.example`. Обязательны:
-   - `POSTGRES_PASSWORD`;
-   - `SESSION_SECRET` (например, `openssl rand -base64 48`);
-   - `BOOTSTRAP_OWNER_PASSWORD`;
-   - `APP_ORIGIN=https://family.example`;
-   - `DATABASE_URL` не нужен в compose: его формирует сервис `api`.
-2. Не добавляйте `.env` в Git, архив релиза или браузерный код.
-3. Запустите:
+Через админку сервера/хостинга:
 
 ```bash
-docker compose up -d --build
-docker compose ps
-curl -fsS https://family.example/api/health
+npm ci --omit=dev
+npm run start:prod -w @ufos/api
+npm run start -w @ufos/web
 ```
 
-Compose использует healthcheck и ждёт готовности PostgreSQL перед API, а API перед web. Web публикует только порт 3000; PostgreSQL и API остаются во внутренней сети.
+Запуск каждого компонента настраивается в своём FTP-каталоге. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на backend. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
-## Production без Docker
+## Обновление
+
+1. Убедитесь, что CI зелёный.
+2. Сделайте backup PostgreSQL по [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
+3. В Actions запустите `FTP deploy` с `target: backend`, `frontend` или `both`.
+4. Workflow соберёт payload'ы, проверит тесты/typecheck/build и загрузит только выбранные файлы.
+5. Перезапустите сервисы в админке сервера. Workflow сам этого не делает.
+
+## Откат
+
+Запустите `ftp.yml` с предыдущей версией и нужным `target`, либо загрузите сохранённый artifact вручную. `mirror -R` не использует `--delete`, поэтому лишние файлы удаляются только вручную в админке сервера. PostgreSQL восстанавливается отдельно по [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
+
+## Backup и восстановление
+
+Автоматический backup в FTP workflow отсутствует. До обновления выполните:
 
 ```bash
-npm ci
+export DATABASE_URL='postgres://…'
+bash scripts/backup.sh backups/pre-deploy.dump
+```
+
+Восстановление:
+
+```bash
+bash scripts/restore.sh backups/pre-deploy.dump
+```
+
+Храните dump вне FTP-каталога и проверяйте восстановление на копии БД. Embedded PGlite используется только для локального preview.
+
+## Локальная проверка
+
+```bash
+npm ci --no-audit --no-fund
+npm run format:check
+npm run check
 npm run build
-NODE_ENV=production \
-DB_DRIVER=postgres \
-DATABASE_URL='postgres://…' \
-SESSION_SECRET='…' \
-BOOTSTRAP_OWNER_PASSWORD='…' \
-APP_ORIGIN='https://family.example' \
-npm start
+bash scripts/package-ftp.sh local-ftp-test
 ```
 
-Запуск двух процессов можно передать systemd, Supervisor или другому process manager. Next.js и NestJS должны быть доступны через reverse proxy с HTTPS. `API_PROXY_ORIGIN` должен указывать на внутренний API.
+Последняя команда создаёт gitignored `releases/ftp/backend` и `releases/ftp/frontend`, но **не загружает** их. Для реального FTPS-upload нужны переменные/секреты из [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
-## FTP/SFTP по выбранной схеме ТЗ
+## Текущий статус
 
-Предпочтительно SFTP. Обычный FTP и Cloudflare Origin Rules **не заменяют** аутентификацию, firewall и защиту origin-сервера.
-
-### 1. Собрать версионированный архив заранее
-
-```bash
-npm run release:package -- v0.1.0-stage-b.1
-```
-
-Создаёт `releases/ufos-<version>.tar.gz` и `.sha256`. Архив содержит только prebuilt artifacts, manifests, docs/scripts; excludes `.git`, `.env`, databases, uploads and node_modules. Сборка на production не выполняется.
-
-### 2. Загрузить в отдельный каталог релиза
-
-```bash
-SFTP_HOST=… SFTP_USER=… SFTP_REMOTE_DIR=/srv/ufos \
-LFTP_PASSWORD=… npm run deploy:sftp -- releases/ufos-v0.1.0-stage-b.1.tar.gz
-```
-
-Скрипт загружает сначала `.part`, затем atomically renames to final name. Он **не переключает current**, пока версия не проверена.
-
-### 3. Подготовить release directory
-
-На сервере:
-
-```bash
-sha256sum -c releases/ufos-<version>.tar.gz.sha256
-mkdir -p /srv/ufos/releases/<version>
-tar -xzf releases/ufos-<version>.tar.gz -C /srv/ufos/releases/<version> --strip-components=1
-cd /srv/ufos/releases/<version>
-npm ci --omit=dev --ignore-scripts=false
-```
-
-Секреты должны находиться вне каталога релиза (например, `/etc/ufos/env`), чтобы переключение версии их не перезаписывало.
-
-### 4. Резервная копия перед миграциями
-
-```bash
-DATABASE_URL='postgres://…' BACKUP_REMOTE=remote:ufos AGE_RECIPIENT=age1… npm run db:backup
-```
-
-Только после успешной внешней копии применяйте миграции. `DatabaseService` последовательно применяет `001_init.sql`, `002_stage_b.sql`, `003_stage_b_compat.sql` и `004_stage_b_activation.sql`, записывая версии в `schema_migrations`; все миграции идемпотентны. Для отката используйте проверенную резервную копию и процедуру из [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
-
-### 5. Переключение current
-
-```bash
-ln -sfn /srv/ufos/releases/<version> /srv/ufos/current.next
-mv -Tf /srv/ufos/current.next /srv/ufos/current
-systemctl restart ufos-api ufos-web
-curl -fsS https://family.example/api/health
-npm run smoke
-```
-
-Точная команда process manager зависит от VPS; symlink switch должен быть атомарным.
-
-### 6. Откат
-
-1. Переключите symlink на предыдущий проверенный release directory.
-2. Остановите сервисы и восстановите БД из копии, сделанной перед миграцией, только если новая версия изменила схему несовместимо.
-3. Восстановите согласованную копию файлов из того же архива.
-4. Проверьте `/api/health`, вход, audit chain и список пространств.
-5. Зафиксируйте причину в журнале, не удаляя audit events.
-
-## Cloudflare
-
-- Origin Rules должны направлять только наружный HTTPS traffic на VPS port web.
-- WebRTC media traffic в будущем не должен идти через обычный HTTP rewrite; для него нужен отдельный TURN/media path.
-- Не публикуйте PostgreSQL/API internals.
-- `APP_ORIGIN` должен содержать точный внешний origin.
-- TLS на origin обязателен; Flexible SSL insufficient for sensitive family data.
-
-## Переменные окружения
-
-См. [`.env.example`](../.env.example). Production не запустится без `SESSION_SECRET`, `DATABASE_URL` и `BOOTSTRAP_OWNER_PASSWORD`. Ключи Polza.ai, SMTP и Telegram для Stage B не нужны и никогда не должны попадать в браузерный код.
-
-## Stage B
-
-Новых обязательных переменных окружения нет. Production-образ API копирует весь каталог SQL-миграций, поэтому `001_init.sql` и `002`–`004` доступны в `dist/db/sql`. SSE использует обычный HTTP-ответ и не требует отдельного порта; обратный прокси должен разрешать streaming и не буферизировать `text/event-stream`. Реврайт `/caldav/:path*` сохраняет завершающий слэш, поэтому внешний proxy не должен подменять его 308-редиректом для `PROPFIND`.
-
-Перед обновлением с Stage A сделайте внешнюю копию PostgreSQL. При первом запуске Stage B миграции создадут новые таблицы, столбцы и пустые организационные контейнеры, сохранив существующие аккаунты, пространства, публикации и аудит.
-
-Локально проверена сборка версионированного архива `npm run release:package -- v0.1.0-stage-b.1`: созданы `.tar.gz` и `.sha256`, контрольная сумма совпала, архив содержит prebuilt `dist`/`.next`, миграции `001`–`004`, документацию и скрипты, но не содержит `.env`, `.git`, `node_modules`, локальные БД или резервные копии. Архив не загружался на сервер; `releases/` исключён из Git. SFTP-загрузка, `pg_dump`, Docker Compose и восстановление на VPS в этой среде не выполнялись.
+Локально проверены build, тесты и packaging. Реальный VPS/FTPS, production PostgreSQL, домен, GitHub secrets и production `.env` в этой рабочей среде не настраивались, поэтому производственный деплой не выполнялся.

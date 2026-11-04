@@ -1,4 +1,32 @@
 /** @type {import('next').NextConfig} */
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
+function loadEnvFile(filename) {
+  if (!existsSync(filename)) return;
+  for (const line of readFileSync(filename, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+    const separator = trimmed.indexOf('=');
+    const key = trimmed.slice(0, separator).trim();
+    let value = trimmed.slice(separator + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+const cwd = process.cwd();
+loadEnvFile(path.join(cwd, '.env'));
+let parent = path.dirname(cwd);
+for (let level = 0; level < 3; level += 1) {
+  loadEnvFile(path.join(parent, '.env'));
+  parent = path.dirname(parent);
+}
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,

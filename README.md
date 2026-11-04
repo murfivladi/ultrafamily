@@ -75,7 +75,7 @@ npm run smoke          # smoke-проверка запущенного прев�
 npm run check          # typecheck + test
 ```
 
-Тот же набор проверок и production-сборку выполняет `.github/workflows/ci.yml`; деплой запускается вручную или тегом `v*` через `.github/workflows/deploy.yml`.
+Тот же набор проверок и production-сборку выполняет `.github/workflows/ci.yml`; FTPS-загрузка выбирается через `target` (`backend`, `frontend` или `both`) в `.github/workflows/ftp.yml`, вручную или тегом `v*`.
 
 ## Структура
 
@@ -84,7 +84,7 @@ apps/api/          NestJS, PostgreSQL/pg, SQL-миграции, guard'ы, ауд
 apps/web/          Next.js App Router, адаптивный доступный интерфейс, PWA
 packages/contracts/ Общие типы, каталог модулей, матрица прав
 docs/              Архитектура, API, безопасность, деплой, восстановление, дорожная карта
-scripts/           Backup, restore, версионированный релиз, SFTP, smoke
+scripts/           Backup, restore, FTP payloads и загрузка, smoke
 Dockerfile.*       Сборка API и web без сборки на production
 docker-compose.yml  PostgreSQL + API + Web
 ```
@@ -99,7 +99,7 @@ docker-compose.yml  PostgreSQL + API + Web
 - [API](docs/API.md)
 - [Безопасность](docs/SECURITY.md)
 - [Деплой и откат](docs/DEPLOYMENT.md)
-- [Деплой через GitHub Actions](docs/GITHUB-ACTIONS.md)
+- [FTP-деплой через GitHub Actions](docs/GITHUB-ACTIONS.md)
 - [Резервное копирование и восстановление](docs/BACKUP-RESTORE.md)
 - [Тестирование](docs/TESTING.md)
 - [Руководство пользователя и администратора](docs/USER-GUIDE.md)

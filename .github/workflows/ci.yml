@@ -33,10 +33,11 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Validate shell scripts
+      - name: Validate shell and Node scripts
         run: |
           set -euo pipefail
           for script in scripts/*.sh; do bash -n "$script"; done
+          for script in scripts/*.mjs; do node --check "$script"; done
 
       - name: Typecheck and tests
         run: npm run check

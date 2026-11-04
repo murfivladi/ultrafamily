@@ -21,9 +21,16 @@ function loadEnvFile(filename: string): void {
   }
 }
 
-const root = path.resolve(process.cwd(), '../..');
-loadEnvFile(path.join(root, '.env'));
-loadEnvFile(path.join(process.cwd(), '.env'));
+// The FTP deployment keeps a single canonical .env at the release root. Look
+// for it from the workspace directory and several parents so both
+// `npm run start:prod -w @ufos/api` and a direct `node dist/main.js` work.
+const cwd = process.cwd();
+loadEnvFile(path.join(cwd, '.env'));
+let parent = path.dirname(cwd);
+for (let level = 0; level < 3; level += 1) {
+  loadEnvFile(path.join(parent, '.env'));
+  parent = path.dirname(parent);
+}
 
 export const isProduction = process.env.NODE_ENV === 'production';
 export const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;

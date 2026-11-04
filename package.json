@@ -27,7 +27,8 @@
     "db:backup": "bash scripts/backup.sh",
     "db:restore": "bash scripts/restore.sh",
     "release:package": "bash scripts/package-release.sh",
-    "deploy:sftp": "bash scripts/deploy-sftp.sh",
+    "release:ftp": "bash scripts/package-ftp.sh",
+    "deploy:ftp": "bash scripts/ftp-upload.sh",
     "smoke": "bash scripts/smoke.sh",
     "check": "npm run typecheck && npm test"
   },

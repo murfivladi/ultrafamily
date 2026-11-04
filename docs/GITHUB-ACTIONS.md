@@ -1,103 +1,101 @@
-# Деплой через GitHub Actions
+# Деплой через GitHub Actions по FTP
 
-В репозитории есть два workflow:
+Автоматизация делает **только загрузку файлов по FTPS**. Она не выполняет SSH-команды, не перезапускает сервисы, не применяет миграции вручную и не использует Docker Compose. Backend и frontend загружаются отдельно, в корень `./` своих FTP-аккаунтов.
 
-- `.github/workflows/ci.yml` — на каждый `push` и `pull_request`: `npm ci`, `format:check`, `check` и production `build`.
-- `.github/workflows/deploy.yml` — ручной запуск (`workflow_dispatch`) или push тега `v*`: сборка версионированного архива, проверка SHA-256, загрузка артефакта в GitHub и, для режима `deploy`, доставка на VPS по SSH/SCP.
+- `.github/workflows/ci.yml` — проверки на каждый push/PR.
+- `.github/workflows/ftp.yml` — сборка двух payload'ов и раздельная загрузка.
+- `scripts/package-ftp.sh` — собирает `releases/ftp/backend` и `releases/ftp/frontend`.
+- `scripts/ftp-upload.sh` — FTPS-загрузка одного payload'а и слияние `.env`.
+- `scripts/ftp-env.mjs` — генерирует автоматические значения.
+- `scripts/merge-env.mjs` — дописывает только недостающие ключи, сохраняя ваши значения.
 
-Автоматический деплой из произвольной ветки намеренно выключен. Production-окружение должно переключаться вручную или из проверенного тега.
+SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 
-## 1. Подготовить VPS
+## Схема доступа
 
-На сервере должны быть:
+По вашему выбору используется **один хост**, но разные пользователи и пароли для backend и frontend. Порт по умолчанию `2121`; удалённый каталог всегда `./`.
 
-- Node.js 22 и npm;
-- PostgreSQL и `pg_dump`;
-- `age`, `rclone`, `curl`, `tar`, `sha256sum`;
-- reverse proxy с HTTPS и точным `APP_ORIGIN`;
-- сервисы `ufos-api` и `ufos-web` под systemd/Supervisor;
-- пользователь деплоя с доступом по SSH и правом выполнять команду рестарта;
-- каталог релизов, например `/srv/ufos/releases`, и симлинк `/srv/ufos/current`;
-- файл окружения вне каталога релиза, например `/etc/ufos/env`.
+| Имя                     | Где                 | Назначение                                                                   |
+| ----------------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `FTP_HOST`              | variable или secret | общий FTP-хост, без `ftp://`                                                 |
+| `FTP_PORT`              | variable            | общий порт, по умолчанию `2121`                                              |
+| `FTP_BACKEND_PORT`      | variable            | необязательный порт backend                                                  |
+| `FTP_FRONTEND_PORT`     | variable            | необязательный порт frontend                                                 |
+| `FTP_BACKEND_USER`      | variable или secret | пользователь backend                                                         |
+| `FTP_BACKEND_PASSWORD`  | **secret**          | пароль backend                                                               |
+| `FTP_FRONTEND_USER`     | variable или secret | пользователь frontend                                                        |
+| `FTP_FRONTEND_PASSWORD` | **secret**          | пароль frontend                                                              |
+| `FTP_VERIFY_CERT`       | variable            | `true` по умолчанию; `false` только для проверенного self-signed сертификата |
+| `APP_ORIGIN`            | variable            | необязательный внешний origin                                                |
+| `API_PROXY_ORIGIN`      | variable            | необязательный внутренний API origin для frontend                            |
+| `BOOTSTRAP_OWNER_EMAIL` | variable            | email первого владельца, по умолчанию `owner@ultra.family`                   |
 
-`/etc/ufos/env` должен содержать production-секреты и настройки, в том числе:
+Используется явный FTPS: `ftp:ssl-force`, `ftp:ssl-protect-data`, passive mode. Обычный FTP и SSH в workflow не применяются.
+
+## Запуск
+
+В **Actions → FTP deploy → Run workflow** выберите:
+
+- `target`: `backend`, `frontend` или `both`;
+- `version`: необязательная версия релиза. Если оставить пустым, берётся имя тега или короткий SHA.
+
+Push тега `v*` автоматически загружает **оба** payload'а.
+
+Каждый job загрузки:
+
+1. Скачивает свой GitHub Artifact.
+2. Проверяет FTPS-соединение и листинг корня; при ошибке соединения деплой прерывается.
+3. Читает существующий `.env` из корня FTP-аккаунта.
+4. Генерирует автоматические значения.
+5. Дописывает **только отсутствующие ключи**; существующие строки, комментарии и вручную введённые значения сохраняются.
+6. Загружает файлы релиза через `mirror -R` без `--delete`, затем выгружает объединённый `.env`.
+
+## Что попадает в `.env` автоматически
+
+Общие: `NODE_ENV`, `APP_VERSION`, при наличии `APP_ORIGIN`.
+
+Backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`.
+
+Frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PROXY_ORIGIN`.
+
+`SESSION_SECRET` и `BOOTSTRAP_OWNER_PASSWORD` генерируются случайно. Сгенерированный пароль первого владельца можно прочитать в `.env` на FTP; workflow не выводит его в логи. Повторный деплой не перезаписывает уже созданные значения.
+
+Канонический `.env` находится в корне каждого релиза. `apps/api/src/config.ts` и `apps/web/next.config.mjs` ищут его от текущего каталога вверх, поэтому отдельные `apps/api/.env` и `apps/web/.env` создавать не нужно.
+
+## Что вводите вы
+
+В тот же `.env` вручную добавьте installation-specific значения, например:
 
 ```dotenv
 DATABASE_URL=postgres://…
-SESSION_SECRET=…
-BOOTSTRAP_OWNER_PASSWORD=…
 APP_ORIGIN=https://family.example
-AGE_RECIPIENT=age1…
-BACKUP_REMOTE=remote:ufos
-RCLONE_CONFIG=/etc/ufos/rclone.conf
+API_PROXY_ORIGIN=http://127.0.0.1:3001
 ```
 
-Не добавляйте этот файл в Git, архив релиза или чат. Именно он используется для `npm run db:backup` перед переключением `current`.
+Остальные настройки первого запуска вводятся в уже существующей админке платформы; новый setup-визард не добавлялся. Шаблон всех ключей лежит в `.env.example` внутри payload'а.
 
-## 2. Настроить GitHub Environment
+## Первый запуск на сервере
 
-Создайте Environment `production` в **Settings → Environments**. Рекомендуется включить required reviewers и, при необходимости, ограничить деплой проверенными ветками/тегами.
-
-Задайте variables или secrets в репозитории/окружении:
-
-| Имя                  | Где                 | Назначение                                              |
-| -------------------- | ------------------- | ------------------------------------------------------- |
-| `DEPLOY_HOST`        | variable или secret | хост VPS                                                |
-| `DEPLOY_USER`        | variable или secret | SSH-пользователь                                        |
-| `DEPLOY_PORT`        | variable            | SSH-порт, по умолчанию `22`                             |
-| `DEPLOY_ROOT`        | variable            | корень релизов, по умолчанию `/srv/ufos`                |
-| `DEPLOY_ENV_FILE`    | variable            | файл окружения, по умолчанию `/etc/ufos/env`            |
-| `DEPLOY_RESTART_CMD` | variable            | по умолчанию `sudo systemctl restart ufos-api ufos-web` |
-| `DEPLOY_BASE_URL`    | variable            | внешний HTTPS URL, например `https://family.example`    |
-| `DEPLOY_SSH_KEY`     | **secret**          | приватный ed25519-ключ без passphrase                   |
-| `DEPLOY_KNOWN_HOSTS` | variable или secret | проверенный `known_hosts` для VPS                       |
-
-Пример получения `known_hosts`:
+Через админку сервера/хостинга:
 
 ```bash
-ssh-keyscan -t ed25519 -p 22 family.example
+npm ci --omit=dev
+# backend
+npm run start:prod -w @ufos/api
+# frontend
+npm run start -w @ufos/web
 ```
 
-Сверьте отпечаток с независимым источником, затем добавьте строку в `DEPLOY_KNOWN_HOSTS`. Workflow использует `StrictHostKeyChecking=yes`; `StrictHostKeyChecking=no` не применяется.
+Команды запуска, порты, reverse proxy и HTTPS настраиваются в админке сервера. Миграции применяет сам API при старте. Workflow только загружает файлы.
 
-## 3. Запустить деплой
+## Откат
 
-### Безопасная проверка без обращения к VPS
+Запустите `ftp.yml` с предыдущей `version` и нужным `target`, либо загрузите сохранённый предыдущий artifact вручную. `mirror -R` не удаляет лишние файлы, поэтому перед откатом при необходимости очистите каталог релиза в админке сервера. Восстановление PostgreSQL выполняется отдельно по [BACKUP-RESTORE.md](BACKUP-RESTORE.md); workflow не трогает БД.
 
-В **Actions → Deploy → Run workflow** выберите `mode: artifact-only`. Workflow выполнит тесты, соберёт архив, проверит контрольную сумму и сохранит артефакт, но не будет обращаться к серверу.
+## Ограничения
 
-### Обычный деплой
-
-Там же выберите `mode: deploy`, при желании задайте `version`, например `v0.1.0-stage-b.1`, либо оставьте поле пустым: тогда используется имя тега или короткий SHA коммита.
-
-Push тега `v*` запускает деплой автоматически; ручной запуск доступен с текущей ветки.
-
-## 4. Что делает deploy job
-
-1. Скачивает собранный `.tar.gz` и `.sha256` из артефакта.
-2. Проверяет контрольную сумму ещё раз.
-3. Загружает файлы в `$DEPLOY_ROOT/releases/` по SCP.
-4. На VPS проверяет контрольную сумму повторно.
-5. Если `current` уже существует, запускает `npm run db:backup` из старого релиза. Backup должен быть зашифрован `age` и скопирован вне VPS через `rclone`; без `DATABASE_URL`, `AGE_RECIPIENT`, `BACKUP_REMOTE` и утилит деплой прерывается.
-6. Распаковывает версию в отдельный каталог, выполняет `npm ci --omit=dev`.
-7. Атомарно переключает `current` через `current.next` и `mv -Tf`.
-8. Перезапускает сервисы командой `DEPLOY_RESTART_CMD`.
-9. Ждёт `/api/health`, затем запускает `npm run smoke` против `DEPLOY_BASE_URL`.
-10. Вся серверная логика находится в `scripts/deploy-remote.sh` и передаётся на VPS по SSH stdin; CI проверяет синтаксис всех `scripts/*.sh` через `bash -n`.
-11. При неудачном health check возвращает симлинк к предыдущему релизу и перезапускает сервисы.
-
-Миграции применяются самим API при старте. Workflow не запускает их отдельно.
-
-## 5. Откат
-
-Автоматический откат меняет только симлинк `current`. Если новая версия уже применила несовместимую миграцию, дополнительно восстановите PostgreSQL из копии, созданной перед деплоем, по [BACKUP-RESTORE.md](BACKUP-RESTORE.md). Журнал аудита не очищается.
-
-## 6. Ограничения
-
-- GitHub Actions не хранит production-секреты приложения: они остаются в `/etc/ufos/env` на VPS.
-- Workflow не использует Docker Compose. Для Compose-сценария см. [DEPLOYMENT.md](DEPLOYMENT.md).
-- `scripts/deploy-sftp.sh` остаётся альтернативой; этот workflow использует SCP/SSH напрямую.
-- Первый деплой пропускает backup, потому что предыдущего `current` ещё нет.
-- SSE требует, чтобы reverse proxy не буферизировал `text/event-stream`; `/caldav/:path*` должен сохранять завершающий слэш.
-- Workflow не запускает `docker compose` и не вызывает `scripts/deploy-sftp.sh`; он использует SCP/SSH и `scripts/deploy-remote.sh`.
-- Реальный VPS, SSH-ключи и GitHub Environment в этой рабочей среде не настраивались.
+- FTPS-загрузка не даёт атомарного переключения `current`, health check и автоматического rollback; это делает админка сервера.
+- Нет SSH, SFTP, Docker Compose и удалённых shell-команд в Actions.
+- `scripts/deploy-sftp.sh` и SSH-деплой удалены.
+- Файлы `Dockerfile.*` и `docker-compose.yml` остаются в репозитории как альтернативные артефакты, но в этом сценарии не используются.
+- Реальный VPS, FTP-пользователи, секреты и production `.env` в этой рабочей среде не настраивались.

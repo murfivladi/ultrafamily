@@ -16,7 +16,7 @@
 | Базовая тема и навигация     | Три темы, светлый/тёмный режим, боковое меню, каталог, поиск, избранное, быстрые действия, мобильная навигация        |
 | Аудит и логи                 | Структурированный JSON-logger с редактированием секретов; hash-chained audit events; проверка целостности             |
 | Тестовая инфраструктура      | Vitest для контрактов, Jest + Supertest + embedded PostgreSQL для API/E2E, TypeScript typecheck для web               |
-| Деплой и восстановление      | Docker Compose, versioned release archive, SFTP upload, `pg_dump`/`pg_restore`, checksum, rollback procedure          |
+| Деплой и восстановление      | разделённые backend/frontend FTP payloads, FTPS upload, `pg_dump`/`pg_restore`, checksum, rollback procedure          |
 
 ## Дополнительно заложено в основу
 
