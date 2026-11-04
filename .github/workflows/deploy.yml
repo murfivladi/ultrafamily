@@ -1,0 +1,199 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (default: tag name or short commit SHA)'
+        required: false
+        type: string
+      mode:
+        description: Build an artifact only, or deploy it to the VPS
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - artifact-only
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultra-family-os-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build release archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      archive: ${{ steps.meta.outputs.archive }}
+      checksum: ${{ steps.meta.outputs.checksum }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Validate shell scripts
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh; do bash -n "$script"; done
+
+      - name: Typecheck and tests
+        run: npm run check
+
+      - name: Resolve release version
+        id: meta
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          raw="$REQUESTED_VERSION"
+          if [ -z "$raw" ]; then
+            if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+              raw="${GITHUB_REF_NAME:-}"
+            else
+              raw="sha-${GITHUB_SHA:0:7}"
+            fi
+          fi
+          version="$(printf '%s' "$raw" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+          if [ -z "$version" ]; then
+            echo 'Could not derive a safe release version.' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "archive=ufos-$version.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "checksum=ufos-$version.tar.gz.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Build versioned release
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: npm run release:package -- "$VERSION"
+
+      - name: Verify release checksum
+        env:
+          CHECKSUM: ${{ steps.meta.outputs.checksum }}
+        run: sha256sum -c "releases/$CHECKSUM"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufos-${{ steps.meta.outputs.version }}
+          path: |
+            releases/${{ steps.meta.outputs.archive }}
+            releases/${{ steps.meta.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy to VPS
+    needs: release
+    if: github.event_name == 'push' || inputs.mode == 'deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/srv/ufos' }}
+      DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/etc/ufos/env' }}
+      DEPLOY_RESTART_CMD: ${{ vars.DEPLOY_RESTART_CMD || 'sudo systemctl restart ufos-api ufos-web' }}
+      DEPLOY_BASE_URL: ${{ vars.DEPLOY_BASE_URL || secrets.DEPLOY_BASE_URL }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS || secrets.DEPLOY_KNOWN_HOSTS }}
+      VERSION: ${{ needs.release.outputs.version }}
+      ARCHIVE: ${{ needs.release.outputs.archive }}
+      CHECKSUM: ${{ needs.release.outputs.checksum }}
+    steps:
+      - name: Checkout deployment script
+        uses: actions/checkout@v4
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ufos-${{ needs.release.outputs.version }}
+          path: releases
+
+      - name: Validate deployment settings
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set DEPLOY_HOST as a repository/environment variable or secret}"
+          : "${DEPLOY_USER:?Set DEPLOY_USER as a repository/environment variable or secret}"
+          : "${DEPLOY_SSH_KEY:?Set DEPLOY_SSH_KEY as an environment secret}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS as a variable or secret}"
+          : "${DEPLOY_BASE_URL:?Set DEPLOY_BASE_URL, for example https://family.example}"
+          : "${DEPLOY_RESTART_CMD:?Set DEPLOY_RESTART_CMD}"
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]] || { echo 'DEPLOY_PORT must be numeric.' >&2; exit 1; }
+          [[ "$DEPLOY_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo 'DEPLOY_ROOT must be an absolute simple path.' >&2; exit 1; }
+          [[ "$DEPLOY_ENV_FILE" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo 'DEPLOY_ENV_FILE must be an absolute simple path.' >&2; exit 1; }
+          [[ "$DEPLOY_BASE_URL" =~ ^https:// ]] || { echo 'DEPLOY_BASE_URL must use HTTPS.' >&2; exit 1; }
+          [[ "$DEPLOY_USER" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'DEPLOY_USER contains unsupported characters.' >&2; exit 1; }
+          test -s "releases/$ARCHIVE"
+          test -s "releases/$CHECKSUM"
+          test -s scripts/deploy-remote.sh
+          bash -n scripts/deploy-remote.sh
+          sha256sum -c "releases/$CHECKSUM"
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
+
+      - name: Upload release files
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -p "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p $DEPLOY_ROOT/releases"
+          scp -i "$HOME/.ssh/id_ed25519" \
+            -P "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "releases/$ARCHIVE" \
+            "releases/$CHECKSUM" \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/releases/"
+
+      - name: Backup, switch and smoke-test
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -p "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            env \
+            UFOS_VERSION="$VERSION" \
+            UFOS_ARCHIVE="$ARCHIVE" \
+            UFOS_CHECKSUM="$CHECKSUM" \
+            UFOS_ROOT="$DEPLOY_ROOT" \
+            UFOS_ENV_FILE="$DEPLOY_ENV_FILE" \
+            UFOS_RESTART_CMD="$DEPLOY_RESTART_CMD" \
+            UFOS_BASE_URL="$DEPLOY_BASE_URL" \
+            bash -s < scripts/deploy-remote.sh

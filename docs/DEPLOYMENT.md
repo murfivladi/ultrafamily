@@ -15,6 +15,10 @@ npm run dev
 
 `npm run dev` собирает общий contracts package до запуска. Next.js `allowedDevOrigins` разрешает `*.e2b.app` для Arena preview. В браузере используются только относительные `/api/*`.
 
+## GitHub Actions
+
+Готовые workflow находятся в `.github/workflows/`. Подробная настройка Environment, секретов, SSH-ключа, backup и атомарного переключения `current` описана в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
+
 ## Production через Docker Compose
 
 Поддерживается, если у VPS есть SSH-доступ и Docker. Проверьте это у Vladhost до выбора схемы.

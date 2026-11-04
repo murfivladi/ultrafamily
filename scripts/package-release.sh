@@ -3,7 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-VERSION="${1:-$(git rev-parse --short HEAD)-$(date -u +%Y%m%dT%H%M%SZ)}"
+RAW_VERSION="${1:-$(git rev-parse --short HEAD)-$(date -u +%Y%m%dT%H%M%SZ)}"
+VERSION="$(printf '%s' "$RAW_VERSION" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+if [ -z "$VERSION" ]; then
+  echo 'Could not derive a safe release version.' >&2
+  exit 1
+fi
 RELEASES="$ROOT/releases"
 ARCHIVE="$RELEASES/ufos-$VERSION.tar.gz"
 mkdir -p "$RELEASES"
@@ -38,6 +43,9 @@ cat > "$STAGE/release/RELEASE.json" <<EOF
 EOF
 
 tar -czf "$ARCHIVE" -C "$STAGE" release
-sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+(
+  cd "$ROOT"
+  sha256sum "releases/ufos-$VERSION.tar.gz" > "releases/ufos-$VERSION.tar.gz.sha256"
+)
 echo "Release archive: $ARCHIVE"
 echo "Deploy this exact version, verify it, then switch the current release. Secrets stay outside the archive."

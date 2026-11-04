@@ -75,6 +75,8 @@ npm run smoke          # smoke-проверка запущенного прев�
 npm run check          # typecheck + test
 ```
 
+Тот же набор проверок и production-сборку выполняет `.github/workflows/ci.yml`; деплой запускается вручную или тегом `v*` через `.github/workflows/deploy.yml`.
+
 ## Структура
 
 ```text
@@ -97,6 +99,7 @@ docker-compose.yml  PostgreSQL + API + Web
 - [API](docs/API.md)
 - [Безопасность](docs/SECURITY.md)
 - [Деплой и откат](docs/DEPLOYMENT.md)
+- [Деплой через GitHub Actions](docs/GITHUB-ACTIONS.md)
 - [Резервное копирование и восстановление](docs/BACKUP-RESTORE.md)
 - [Тестирование](docs/TESTING.md)
 - [Руководство пользователя и администратора](docs/USER-GUIDE.md)
