@@ -79,6 +79,11 @@ set ssl:verify-certificate $FTP_VERIFY_CERT
 set net:max-retries 3
 set net:timeout 20
 set xfer:clobber true
+set mirror:set-permissions no
+set ftp:use-site-chmod no
+set ftp:use-site-utime no
+set ftp:use-site-utime2 no
+set ftp:use-mdtm-overloaded no
 EOF
   if [[ "$FTP_TLS_MODE" == 'explicit' ]]; then
     printf '%s\n' 'set ftp:ssl-force true' 'set ftp:ssl-protect-data true' 'set ftp:ssl-auth TLS'
@@ -87,6 +92,8 @@ EOF
   fi
 }
 
+# Shared-hosting FTP often disables SITE/MFF entirely. Keep server-side
+# default permissions and timestamps instead of trying chmod over FTP.
 # LFTP_PASSWORD alone is ignored by lftp: --env-password is mandatory.
 # This keeps the password out of the command line and process listing.
 run_lftp() {
@@ -125,7 +132,7 @@ echo "Uploading $FTP_TARGET payload to ./ ..."
 {
   lftp_common
   printf '%s\n' \
-    "mirror -R --parallel=3 --verbose --exclude .env --exclude .env.local --exclude .env.*.local --exclude node_modules/ --exclude .git/ \"$LOCAL_DIR\" ./" \
+    "mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude .env --exclude .env.local --exclude .env.*.local --exclude node_modules/ --exclude .git/ \"$LOCAL_DIR\" ./" \
     "put \"$MERGED\" -o .env" \
     'bye'
 } | run_lftp
