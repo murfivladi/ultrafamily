@@ -128,14 +128,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ufos-ftp-backend-${{ needs.package.outputs.version }}
-          path: artifact
+          path: payload
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
       - name: Validate FTP settings
         env:
-          LOCAL_DIR: artifact
+          LOCAL_DIR: payload
         run: |
           set -euo pipefail
           : "${FTP_HOST:?Set FTP_HOST as a variable or secret}"
@@ -163,7 +163,7 @@ jobs:
 
       - name: Upload backend
         env:
-          LOCAL_DIR: artifact
+          LOCAL_DIR: payload
         run: bash scripts/ftp-upload.sh
 
   upload_frontend:
@@ -192,14 +192,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ufos-ftp-frontend-${{ needs.package.outputs.version }}
-          path: artifact
+          path: payload
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
       - name: Validate FTP settings
         env:
-          LOCAL_DIR: artifact
+          LOCAL_DIR: payload
         run: |
           set -euo pipefail
           : "${FTP_HOST:?Set FTP_HOST as a variable or secret}"
@@ -227,5 +227,5 @@ jobs:
 
       - name: Upload frontend
         env:
-          LOCAL_DIR: artifact
+          LOCAL_DIR: payload
         run: bash scripts/ftp-upload.sh
