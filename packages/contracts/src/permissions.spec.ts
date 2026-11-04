@@ -87,4 +87,8 @@ describe('hybrid role and permission model', () => {
     expect(permissions).not.toContain('health:read');
     expect(permissions).not.toContain('calendar:publish');
   });
+
+  it('returns no data permissions for a platform administrator with a membership', () => {
+    expect(permissionsForMembership('space_owner', {}, undefined, [], true)).toEqual([]);
+  });
 });

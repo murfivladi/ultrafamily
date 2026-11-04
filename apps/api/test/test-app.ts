@@ -21,7 +21,19 @@ export async function createTestApp(): Promise<INestApplication> {
     logger: false,
     bodyParser: false,
   });
-  app.use(express.json({ limit: '64kb' }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(
+    express.text({
+      type: [
+        'text/calendar',
+        'application/calendar+xml',
+        'text/xml',
+        'application/xml',
+        'text/plain',
+      ],
+      limit: '1mb',
+    }),
+  );
   app.use(cookieParser());
   app.setGlobalPrefix('api');
   await app.init();

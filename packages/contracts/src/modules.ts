@@ -65,6 +65,8 @@ export interface ModuleDefinition {
     | 'system';
 }
 
+// Modules available in the current internal foundation. Stage B extends the
+// Stage A base with the organizational core; "planned" modules remain roadmap.
 const foundationModules = new Set<ModuleId>([
   'dashboard',
   'catalog',
@@ -74,6 +76,10 @@ const foundationModules = new Set<ModuleId>([
   'sessions',
   'admin',
   'public_site',
+  'calendar',
+  'tasks',
+  'notifications',
+  'shopping',
 ]);
 
 const sensitiveModules = new Set<ModuleId>([
@@ -248,7 +254,17 @@ export const MODULES_BY_ID: Record<ModuleId, ModuleDefinition> = Object.fromEntr
 
 export const SENSITIVE_MODULE_IDS: readonly ModuleId[] = [...sensitiveModules];
 export const CHILD_RESTRICTED_MODULE_IDS: readonly ModuleId[] = [...childRestrictedModules];
-export const STAGE_A_MODULE_IDS: readonly ModuleId[] = [...foundationModules];
+export const FOUNDATION_MODULE_IDS: readonly ModuleId[] = [...foundationModules];
+/** @deprecated Use FOUNDATION_MODULE_IDS; kept for Stage A callers. */
+export const STAGE_A_MODULE_IDS: readonly ModuleId[] = FOUNDATION_MODULE_IDS;
+export const STAGE_B_MODULE_IDS: readonly ModuleId[] = [
+  'dashboard',
+  'calendar',
+  'tasks',
+  'notifications',
+  'shopping',
+  'public_site',
+];
 
 export function isModuleId(value: string): value is ModuleId {
   return (MODULE_IDS as readonly string[]).includes(value);

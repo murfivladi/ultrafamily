@@ -37,6 +37,7 @@ export interface UserPreferences {
   widgets: string[];
   favorites: string[];
   quickActions: string[];
+  feedSources: string[];
 }
 
 export interface Space {
@@ -82,6 +83,9 @@ export interface AuditEvent {
   chainHash: string;
 }
 
+export type PublicationStatus = 'draft' | 'published' | 'unpublished';
+export type PublicationVisibility = 'public' | 'network' | 'household';
+
 export interface PublicPost {
   id: string;
   slug: string;
@@ -91,6 +95,11 @@ export interface PublicPost {
   body: string;
   publishedAt: string;
   spaceName: string;
+  status?: PublicationStatus;
+  visibility?: PublicationVisibility;
+  updatedAt?: string;
+  audienceSpaceIds?: string[];
+  guestShared?: boolean;
 }
 
 export interface ModuleToggle {
@@ -109,6 +118,141 @@ export interface AuthSnapshot {
   csrfToken: string;
 }
 
+export type CalendarView = 'day' | 'week' | 'month' | 'agenda';
+export type CalendarKind = 'personal' | 'family' | 'network' | 'birthdays' | 'holidays' | 'trip';
+export type RsvpStatus = 'pending' | 'accepted' | 'declined' | 'tentative';
+
+export interface CalendarSummary {
+  id: string;
+  spaceId: string;
+  name: string;
+  kind: CalendarKind;
+  color: string;
+  ctag: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  calendarId: string;
+  spaceId: string;
+  uid: string;
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  timezone: string;
+  category: string;
+  color: string;
+  recurrenceRule: string | null;
+  status: 'confirmed' | 'tentative' | 'cancelled';
+  participants: Array<{ userId: string; rsvp: RsvpStatus }>;
+  links: Array<{ module: string; targetId: string }>;
+  etag: string;
+  version: number;
+  isOccurrence?: boolean;
+  occurrenceStart?: string;
+  updatedAt: string;
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface TaskItem {
+  id: string;
+  listId: string;
+  spaceId: string;
+  parentTaskId: string | null;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  category: string;
+  assigneeUserId: string | null;
+  dueAt: string | null;
+  estimateMinutes: number;
+  complexity: number;
+  recurrenceRule: string | null;
+  position: number;
+  subtaskCount: number;
+  dependencyCount: number;
+  version: number;
+  updatedAt: string;
+}
+
+export interface TaskBoard {
+  lists: Array<{ id: string; name: string; color: string; kind: string }>;
+  tasks: TaskItem[];
+  workload: Array<{ userId: string; openTasks: number; minutes: number }>;
+}
+
+export type NotificationSeverity = 'info' | 'important' | 'urgent';
+export type NotificationChannel = 'in_app' | 'push' | 'email' | 'telegram' | 'webhook';
+
+export interface NotificationItem {
+  id: string;
+  spaceId: string | null;
+  category: string;
+  severity: NotificationSeverity;
+  title: string;
+  body: string;
+  sourceModule: string;
+  sourceId: string | null;
+  actionUrl: string | null;
+  groupedCount: number;
+  createdAt: string;
+  readAt: string | null;
+  expiresAt: string | null;
+}
+
+export interface NotificationPreferences {
+  channels: Record<string, NotificationChannel[]>;
+  quietHours: { enabled: boolean; from: string; to: string; timezone: string };
+  dailyDigest: boolean;
+  weeklyDigest: boolean;
+  urgentOverride: boolean;
+  categories: Record<string, boolean>;
+}
+
+export interface ShoppingList {
+  id: string;
+  spaceId: string;
+  name: string;
+  kind: string;
+  status: 'active' | 'archived';
+  version: number;
+  items: ShoppingItem[];
+  presence: Array<{ userId: string; status: string; lastSeenAt: string }>;
+  updatedAt: string;
+}
+
+export interface ShoppingItem {
+  id: string;
+  listId: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+  checked: boolean;
+  assignedUserId: string | null;
+  sourceModule: string | null;
+  sourceId: string | null;
+  notes: string;
+  position: number;
+}
+
+export interface FeedItem {
+  id: string;
+  source: 'calendar' | 'tasks' | 'notifications' | 'shopping' | 'family' | 'security';
+  severity: NotificationSeverity;
+  title: string;
+  detail: string;
+  reason: string;
+  dueAt: string | null;
+  href: string;
+}
+
 export interface DashboardSnapshot {
   generatedAt: string;
   activeSpaceName: string;
@@ -118,6 +262,12 @@ export interface DashboardSnapshot {
   recentAudit: AuditEvent[];
   recentSessions: Session[];
   publicPosts: PublicPost[];
+  feed: FeedItem[];
+  feedSources: string[];
+  events: CalendarEvent[];
+  tasks: TaskItem[];
+  notifications: NotificationItem[];
+  shopping: ShoppingList[];
 }
 
 export interface AdminSnapshot {

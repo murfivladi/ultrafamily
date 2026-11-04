@@ -14,6 +14,7 @@ interface NavItem {
   href: string;
   icon: string;
   label: string;
+  module?: string;
 }
 
 const GROUPS: Array<ModuleDefinition['group']> = [
@@ -70,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const navItems = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [
+    const coreItems: NavItem[] = [
       {
         id: 'dashboard',
         href: '/dashboard',
@@ -82,16 +83,61 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       { id: 'settings', href: '/settings', icon: 'Settings2', label: t('common.settings') },
       { id: 'sessions', href: '/sessions', icon: 'ShieldCheck', label: t('common.sessions') },
     ];
-    if (snapshot?.platformRole) {
+    const stageBItems: NavItem[] = [
+      {
+        id: 'calendar',
+        href: '/calendar',
+        icon: 'CalendarDays',
+        label: t('modules.calendar'),
+        module: 'calendar',
+      },
+      { id: 'tasks', href: '/tasks', icon: 'ListTodo', label: t('modules.tasks'), module: 'tasks' },
+      {
+        id: 'notifications',
+        href: '/notifications',
+        icon: 'BellRing',
+        label: t('modules.notifications'),
+        module: 'notifications',
+      },
+      {
+        id: 'shopping',
+        href: '/shopping',
+        icon: 'ShoppingBasket',
+        label: t('modules.shopping'),
+        module: 'shopping',
+      },
+      {
+        id: 'publishing',
+        href: '/publishing',
+        icon: 'Globe2',
+        label: t('modules.public_site'),
+        module: 'public_site',
+      },
+    ];
+    const permissions = new Set(snapshot?.permissions ?? []);
+    const allowedStageB = stageBItems.filter((item) => permissions.has(`${item.module}:read`));
+    const simplified = preferences.simplifiedUi || snapshot?.user.isChild;
+    const visibleStageB = simplified
+      ? allowedStageB.filter((item) => ['calendar', 'tasks', 'shopping'].includes(item.id))
+      : allowedStageB;
+    const items = [...coreItems, ...visibleStageB];
+    if (snapshot?.platformRole && !simplified) {
       items.push({ id: 'admin', href: '/admin', icon: 'ServerCog', label: t('common.admin') });
     }
-    if (preferences.simplifiedUi || snapshot?.user.isChild) {
-      return items.filter((item) =>
-        ['dashboard', 'catalog', 'spaces', 'settings'].includes(item.id),
-      );
-    }
-    return items;
-  }, [preferences.simplifiedUi, snapshot?.platformRole, snapshot?.user.isChild, t]);
+    return simplified
+      ? items.filter((item) =>
+          ['dashboard', 'catalog', 'spaces', 'settings', 'calendar', 'tasks', 'shopping'].includes(
+            item.id,
+          ),
+        )
+      : items;
+  }, [
+    preferences.simplifiedUi,
+    snapshot?.permissions,
+    snapshot?.platformRole,
+    snapshot?.user.isChild,
+    t,
+  ]);
 
   if (authStatus === 'loading') return <LoadingScreen />;
   if (!snapshot) return null;
@@ -102,9 +148,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     .map((id) => MODULES.find((module) => module.id === id))
     .filter((module): module is ModuleDefinition => Boolean(module));
   const quickActions = [
-    { id: 'new-task', module: 'tasks', icon: 'ListPlus' },
-    { id: 'new-event', module: 'calendar', icon: 'CalendarPlus' },
-    { id: 'invite', module: 'spaces', icon: 'UserPlus' },
+    { id: 'new-task', module: 'tasks', icon: 'ListPlus', href: '/tasks#new-task' },
+    { id: 'new-event', module: 'calendar', icon: 'CalendarPlus', href: '/calendar#new-event' },
+    { id: 'invite', module: 'spaces', icon: 'UserPlus', href: '/spaces#invite' },
   ];
 
   const handleSpaceSwitch = async (spaceId: string) => {
@@ -265,7 +311,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {quickActions.map((action) => (
               <Link
                 key={action.id}
-                href={`/catalog?module=${action.module}`}
+                href={action.href}
                 className="uf-card-soft flex flex-col items-center gap-1 p-2 text-center text-[0.68rem] font-bold hover:border-[var(--accent)]"
               >
                 <DynamicIcon name={action.icon} className="h-4 w-4 text-[var(--accent-strong)]" />
@@ -297,7 +343,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mt-8 border-t border-[var(--border)] pt-5 text-xs leading-5 text-[var(--muted)]">
-          <p className="font-semibold">Stage A · {t('common.foundation')}</p>
+          <p className="font-semibold">{t('stageB.badge')}</p>
           <p className="mt-1">{t('common.private')}</p>
         </div>
       </aside>
@@ -334,7 +380,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="hidden items-center gap-2 md:flex">
             <Badge tone="accent">
               <Lucide.Layers3 className="h-3.5 w-3.5" />
-              Stage A
+              {t('stageB.badge')}
             </Badge>
           </div>
 

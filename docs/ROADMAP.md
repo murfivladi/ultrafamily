@@ -1,17 +1,17 @@
 # Дорожная карта этапов B–H
 
-Соответствует разделу 34 ТЗ. Этапы могут частично выполняться параллельно, но foundation stability важнее скорости. Ни один из перечисленных ниже пунктов не заявлен как реализованный в Stage A.
+Соответствует разделу 34 ТЗ. Этапы могут частично выполняться параллельно, но стабильность основы важнее скорости. Этап B реализован как внутренняя техническая сборка; этапы C–H ниже остаются планом. Ни один этап не является публичной версией 1.0.
 
-## B. Организационное ядро
+## B. Организационное ядро — реализовано во внутренней сборке
 
-- Dashboard feed sources, smart urgency explanations and module links.
-- Day/week/month/agenda calendar, recurrence/exceptions, participants, free/busy, iCalendar and CalDAV.
-- Lists and Kanban, subtasks, dependencies, recurrence, assignment queues, workload-aware distribution.
-- In-app/Web Push/email/Telegram/webhook notification channels, quiet hours, digest, retry and dedupe.
-- Collaborative shopping lists, recipe/menu generation of items, in-store realtime mode.
-- Public site publishing workflow, preview, unpublish and per-post visibility.
+- Настраиваемые источники ленты, детерминированные объяснения важности и ссылки на модули.
+- Календарь day/week/month/agenda, повторы/исключения, участники, free/busy, ICS и CalDAV.
+- Списки и доска задач, подзадачи, зависимости, повторы, шаблоны и назначение по нагрузке.
+- In-app и webhook-уведомления, тихие часы, сводки, дедупликация и повторы локальной очереди. Адаптеры Web Push/email/Telegram пока не подключены.
+- Совместные списки покупок, генерация позиций из календарного меню/задач, presence и версии. Полноценные рецепты/запасы относятся к этапу E.
+- Явная публикация сайта: черновик, предпросмотр, снятие с публикации и видимость каждой записи.
 
-Before implementation: Redis/BullMQ or a bounded worker queue; CalDAV conflict model; outbound SMTP/Telegram adapters; notification preference schema; realtime gateway.
+Ограничения текущей реализации: вместо Redis/BullMQ используется ограниченная таблица доставки; конфликты CalDAV разрешаются ETag/версиями; SMTP/Telegram/Web Push-адаптеры не подключены; realtime сделан через SSE в одном API-процессе. Подробности — [STAGE-B.md](STAGE-B.md).
 
 ## C. Общение и совместная работа
 

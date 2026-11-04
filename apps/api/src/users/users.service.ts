@@ -103,13 +103,21 @@ export class UsersService {
     const widgets = stringArray(merged.widgets, []);
     const favorites = stringArray(merged.favorites, []);
     const quickActions = stringArray(merged.quickActions, []);
+    const feedSources = stringArray(merged.feedSources, [
+      'calendar',
+      'tasks',
+      'notifications',
+      'shopping',
+      'family',
+      'security',
+    ]);
     const updated = await this.db.queryOne<PreferencesRow>(
       `UPDATE user_preferences SET
          theme = $2, color_mode = $3, density = $4,
          high_contrast = $5, large_text = $6, reduce_motion = $7,
          economy_mode = $8, simplified_ui = $9,
          widgets = $10, favorites = $11, quick_actions = $12,
-         updated_at = CURRENT_TIMESTAMP
+         feed_sources = $13, updated_at = CURRENT_TIMESTAMP
        WHERE user_id = $1 RETURNING *`,
       [
         userId,
@@ -124,6 +132,7 @@ export class UsersService {
         JSON.stringify(widgets),
         JSON.stringify(favorites),
         JSON.stringify(quickActions),
+        JSON.stringify(feedSources),
       ],
     );
     if (!updated) throw new NotFoundException('preferences_not_found');

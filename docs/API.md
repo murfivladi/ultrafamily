@@ -95,4 +95,20 @@
 
 ## Версионирование
 
-Stage A не обещает стабильного публичного API. Версия возвращается в `/api/health`. Публичный API с OAuth, scoped tokens, webhooks и документацией входит в Этап H.
+Stage A и Stage B не обещают стабильного публичного API. Версия возвращается в `/api/health`. Публичный API с OAuth, scoped tokens, webhooks и документацией входит в Этап H.
+
+## Stage B endpoints
+
+Все приватные маршруты требуют сессии, CSRF для изменяющих методов и `spaceId` в query или теле. Массив `permissions` из `/auth/me` показывает доступные действия.
+
+- Realtime: `GET /api/realtime/stream?spaceId=...&topics=calendar,tasks,notifications,shopping,shopping.presence,public_site`.
+- Dashboard: `GET /api/dashboard` возвращает `feed`, `feedSources`, `events`, `tasks`, `notifications`, `shopping` с фильтрацией по правам.
+- Calendar: `GET|POST /api/calendar/calendars`, `GET|POST /api/calendar/events`, `GET|PATCH|DELETE /api/calendar/events/:id`, `POST .../rsvp|links|exceptions`, `POST /api/calendar/free-busy`, `POST /api/calendar/suggest-time`, `GET /api/calendar/overload`, `GET /api/calendar/export.ics`, `POST /api/calendar/import`, `GET|POST|DELETE /api/calendar/tokens`.
+- CalDAV (Basic Auth, отдельный токен): `OPTIONS|PROPFIND|REPORT /api/caldav/:calendarId`, `GET|PUT|DELETE /api/caldav/:calendarId/:uid.ics`.
+- Tasks: `GET /api/tasks/board`, `POST /api/tasks/lists`, `POST /api/tasks`, `PATCH|DELETE /api/tasks/:id`, `POST .../comments|attachments|dependencies|links|claim|prioritize|split`, `POST /api/tasks/auto-assign`, `GET|POST /api/tasks/templates`, `POST /api/tasks/templates/apply`.
+- Notifications: `GET /api/notifications`, `GET /api/notifications/unread-count|preferences|digest|deliveries|webhooks`, `PATCH /api/notifications/preferences`, `POST /api/notifications/test|dispatch|read-all|push|webhooks|reminders/sweep`, `POST /api/notifications/:id/read`, `DELETE /api/notifications/push/:id`.
+- Shopping: `GET /api/shopping/lists|history|suggestions`, `POST /api/shopping/lists|items|merge|generate|presence/join|presence/leave`, `PATCH|DELETE /api/shopping/items/:id`, `POST /api/shopping/items/:id/claim`, `POST /api/shopping/suggestions/:id/accept`, `POST /api/shopping/lists/:id/archive`.
+- Publishing: `GET /api/publishing|stats|shared`, `POST /api/publishing/drafts`, `PATCH /api/publishing/:id`, `GET /api/publishing/:id/preview`, `POST /api/publishing/:id/publish|unpublish`.
+- Public: `GET /api/public/posts`, `GET /api/public/news`, `GET /api/public/posts/:slug`. Публичная выдача содержит только явно опубликованные `public` материалы и безопасные поля.
+
+Детали ограничений и форматов — в [STAGE-B.md](STAGE-B.md).

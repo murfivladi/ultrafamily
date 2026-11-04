@@ -20,7 +20,15 @@ import {
 import { apiFetch } from '@/lib/api';
 import { formatDate, formatDateTime, truncate } from '@/lib/format';
 
-const WIDGET_IDS = ['overview', 'important', 'security', 'activity', 'sessions', 'public'] as const;
+const WIDGET_IDS = [
+  'feed',
+  'overview',
+  'important',
+  'security',
+  'activity',
+  'sessions',
+  'public',
+] as const;
 type WidgetId = (typeof WIDGET_IDS)[number];
 
 function isWidgetId(value: string): value is WidgetId {
@@ -154,6 +162,51 @@ export default function DashboardPage() {
   ];
 
   const widgetContent: Record<WidgetId, React.ReactNode> = {
+    feed: (
+      <div className="space-y-3">
+        <p className="text-xs leading-5 text-[var(--muted)]">{t('stageB.smartFeedText')}</p>
+        {(data?.feed ?? []).length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">{t('stageB.common.noData')}</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {(data?.feed ?? []).slice(0, 8).map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="uf-card-soft flex h-full flex-col p-4 hover:border-[var(--accent)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <Badge
+                    tone={
+                      item.severity === 'urgent'
+                        ? 'danger'
+                        : item.severity === 'important'
+                          ? 'warning'
+                          : 'accent'
+                    }
+                  >
+                    {t(`stageB.common.${item.severity}`)}
+                  </Badge>
+                  <span className="text-[0.65rem] font-bold uppercase tracking-wider text-[var(--muted)]">
+                    {item.source}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-sm font-bold">{item.title}</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{item.detail}</p>
+                <p className="mt-3 text-[0.68rem] font-extrabold uppercase tracking-wider text-[var(--accent-strong)]">
+                  {t('stageB.common.reason')}: {item.reason}
+                </p>
+                {item.dueAt ? (
+                  <p className="mt-2 text-[0.68rem] text-[var(--muted)]">
+                    {formatDateTime(language, item.dueAt)}
+                  </p>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    ),
     overview: (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -329,6 +382,7 @@ export default function DashboardPage() {
   };
 
   const widgetMeta: Record<WidgetId, { title: string; icon: string }> = {
+    feed: { title: t('stageB.smartFeed'), icon: 'Sparkles' },
     overview: { title: t('dashboard.overview'), icon: 'LayoutDashboard' },
     important: { title: t('dashboard.important'), icon: 'Sparkles' },
     security: { title: t('dashboard.securityCard'), icon: 'ShieldCheck' },
@@ -340,7 +394,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Stage A · Foundation"
+        eyebrow={t('stageB.badge')}
         title={t('dashboard.hello', { name: snapshot?.user.displayName ?? '' })}
         description={t('dashboard.subtitle')}
         action={

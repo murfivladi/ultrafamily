@@ -30,6 +30,7 @@ const preferencesSchema = z
     widgets: z.array(z.string().max(60)).max(30).optional(),
     favorites: z.array(z.string().max(60)).max(30).optional(),
     quickActions: z.array(z.string().max(60)).max(30).optional(),
+    feedSources: z.array(z.string().max(60)).max(20).optional(),
   })
   .strict();
 

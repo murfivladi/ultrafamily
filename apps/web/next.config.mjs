@@ -2,11 +2,18 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // CalDAV clients use collection URLs with a trailing slash; preserve PROPFIND
+  // methods and bodies instead of answering with Next.js' 308 redirect.
+  skipTrailingSlashRedirect: true,
   allowedDevOrigins: ['*.e2b.app'],
   transpilePackages: ['@ufos/contracts'],
   async rewrites() {
     const apiOrigin = process.env.API_PROXY_ORIGIN || 'http://127.0.0.1:3001';
     return [
+      {
+        source: '/caldav/:path*',
+        destination: `${apiOrigin}/api/caldav/:path*`,
+      },
       {
         source: '/api/:path*',
         destination: `${apiOrigin}/api/:path*`,

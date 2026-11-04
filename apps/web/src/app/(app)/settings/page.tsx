@@ -23,6 +23,15 @@ import {
 } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 
+const FEED_SOURCES = [
+  'calendar',
+  'tasks',
+  'notifications',
+  'shopping',
+  'family',
+  'security',
+] as const;
+
 const THEMES: Array<{ id: ThemeName; labelKey: string; colors: [string, string] }> = [
   { id: 'family', labelKey: 'common.themeFamily', colors: ['#5B7CFA', '#3455D1'] },
   { id: 'sage', labelKey: 'common.themeSage', colors: ['#16866C', '#52D3AE'] },
@@ -79,7 +88,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Stage A · Foundation"
+        eyebrow={t('stageB.badge')}
         title={t('settings.title')}
         description={t('settings.subtitle')}
         action={
@@ -293,6 +302,42 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card className="mt-5 p-6">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+            <Lucide.Rss className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold">{t('stageB.feedSources')}</h2>
+            <p className="text-xs leading-5 text-[var(--muted)]">{t('stageB.feedSourcesText')}</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {FEED_SOURCES.map((source) => {
+            const checked = preferences.feedSources.includes(source);
+            const label = t(`stageB.source.${source}`);
+            return (
+              <div
+                key={source}
+                className="uf-card-soft flex items-center justify-between gap-3 p-4"
+              >
+                <span className="text-sm font-bold">{label}</span>
+                <Toggle
+                  checked={checked}
+                  label={label}
+                  onChange={(value) => {
+                    const next = value
+                      ? [...new Set([...preferences.feedSources, source])]
+                      : preferences.feedSources.filter((item) => item !== source);
+                    void updatePreferences({ feedSources: next });
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       </Card>
     </>

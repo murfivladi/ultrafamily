@@ -90,6 +90,7 @@ export class AccessService {
       override: overrides[permissionKey(moduleId, action)],
       sensitiveGrant: sensitiveGrants.includes(moduleId),
       isChild: user.is_child,
+      isPlatformAdmin: user.platform_role === 'platform_admin',
       explicitlyShared: options.explicitlyShared ?? false,
     });
     if (!result.allowed) throw new ForbiddenException(`access_denied:${result.reason}`);
@@ -97,11 +98,14 @@ export class AccessService {
   }
 
   async permissionsForActiveSpace(userId: string, spaceId: string): Promise<string[]> {
-    const membership = await this.db.queryOne<MembershipRow>(
-      'SELECT * FROM memberships WHERE space_id = $1 AND user_id = $2',
-      [spaceId, userId],
-    );
-    if (!membership) return [];
+    const [membership, user] = await Promise.all([
+      this.db.queryOne<MembershipRow>(
+        'SELECT * FROM memberships WHERE space_id = $1 AND user_id = $2',
+        [spaceId, userId],
+      ),
+      this.db.queryOne<UserRow>('SELECT * FROM users WHERE id = $1', [userId]),
+    ]);
+    if (!membership || !user) return [];
     const enabledRows = await this.db.query<{ module_id: string }>(
       'SELECT module_id FROM module_toggles WHERE space_id = $1 AND enabled = TRUE',
       [spaceId],
@@ -112,6 +116,7 @@ export class AccessService {
       parseJson<Record<string, OverrideDecision>>(membership.overrides, {}),
       enabled,
       parseJson<string[]>(membership.sensitive_grants, []),
+      user.platform_role === 'platform_admin',
     );
   }
 }

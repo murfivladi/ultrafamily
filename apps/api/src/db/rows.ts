@@ -5,6 +5,8 @@ import type {
   Language,
   PlatformRole,
   PublicPost,
+  PublicationStatus,
+  PublicationVisibility,
   Space,
   SpaceKind,
   SpaceRole,
@@ -42,6 +44,7 @@ export interface PreferencesRow {
   widgets: unknown;
   favorites: unknown;
   quick_actions: unknown;
+  feed_sources: unknown;
 }
 
 export interface SpaceRow {
@@ -101,6 +104,11 @@ export interface PublicPostRow {
   body: string;
   published_at: Date | string;
   space_name: string;
+  status?: PublicationStatus;
+  visibility?: PublicationVisibility;
+  updated_at?: Date | string | null;
+  audience_space_ids?: unknown;
+  guest_shared?: boolean;
 }
 
 export function iso(value: Date | string | null | undefined): string | null {
@@ -150,6 +158,14 @@ export function toPreferences(row: PreferencesRow): UserPreferences {
     widgets: parseJson<string[]>(row.widgets, []),
     favorites: parseJson<string[]>(row.favorites, []),
     quickActions: parseJson<string[]>(row.quick_actions, []),
+    feedSources: parseJson<string[]>(row.feed_sources, [
+      'calendar',
+      'tasks',
+      'notifications',
+      'shopping',
+      'family',
+      'security',
+    ]),
   };
 }
 
@@ -190,5 +206,12 @@ export function toPublicPost(row: PublicPostRow): PublicPost {
     body: row.body,
     publishedAt: iso(row.published_at) ?? new Date(0).toISOString(),
     spaceName: row.space_name,
+    ...(row.status ? { status: row.status } : {}),
+    ...(row.visibility ? { visibility: row.visibility } : {}),
+    ...(row.updated_at ? { updatedAt: iso(row.updated_at) ?? undefined } : {}),
+    ...(row.audience_space_ids !== undefined
+      ? { audienceSpaceIds: parseJson<string[]>(row.audience_space_ids, []) }
+      : {}),
+    ...(row.guest_shared !== undefined ? { guestShared: row.guest_shared } : {}),
   };
 }

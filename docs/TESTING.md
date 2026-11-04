@@ -78,7 +78,7 @@ From section 33 of the TЗ, the following remain for later stages/version 1.0:
 - realtime/Yjs conflict tests;
 - 6–10 user load and VPS resource tests.
 
-These gaps are intentional and documented; Stage A is not claimed as version 1.0.
+Эти границы намеренно задокументированы; Stage B также не заявлен как версия 1.0.
 
 ## Definition of Done for future modules
 
@@ -94,3 +94,11 @@ Every module from stages B–H must add:
 8. export/backup participation;
 9. docs;
 10. VPS resource/security review.
+
+## Stage B
+
+`npm run test -w @ufos/api` запускает 22 серверных теста: 11 Stage A и 11 Stage B. Добавлены проверки умной ленты, запрета данных для администратора сервера с членством, изоляции пространств, гостевых/детских ограничений, календаря/ICS/RRULE, версий и CalDAV, задач без геймификации, настроек/очереди уведомлений, совместных покупок и явной публикации.
+
+CalDAV проверяется через `PROPFIND`, `REPORT`, `PUT` с `If-None-Match`, `GET`, `DELETE` с `If-Match`, а также отклонение токена для чужого календаря. Публичный API проверяется до и после публикации/снятия с публикации.
+
+Живое превью на встроенном PGlite дополнительно проверяло SSE-событие `tasks` через `/api/realtime/stream`, `PROPFIND 207` через `/caldav/:calendarId/`, миграцию существующей Stage A базы (`001_stage_a_foundation` → `001_init` + `002`–`004`) и сохранение пользователей/публикаций. Ещё не выполнялись: Playwright/браузерные сценарии, production PostgreSQL/Docker runtime, реальные SMTP/Telegram/Web Push, нагрузочное тестирование SSE и `npm audit`.

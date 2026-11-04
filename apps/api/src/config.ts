@@ -50,7 +50,7 @@ export const config = {
   port: Number(process.env.API_PORT || 3001),
   isProduction,
   isTest,
-  version: process.env.APP_VERSION || '0.1.0-stage-a',
+  version: process.env.APP_VERSION || '0.1.0-stage-b',
   databaseUrl,
   driver,
   pgliteDataDir: process.env.PGLITE_DATA_DIR || path.join(process.cwd(), '.data', 'pglite'),

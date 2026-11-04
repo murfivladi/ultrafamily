@@ -59,7 +59,7 @@ SQL-схема: [`apps/api/src/db/sql/001_init.sql`](../apps/api/src/db/sql/001_
 
 ## Модули
 
-`MODULES` содержит 40 модулей ТЗ. Каждый имеет:
+`MODULES` содержит 41 модуль ТЗ. Каждый имеет:
 
 - `stage` A–H;
 - `status`: `foundation` для готовых модулей Этапа A, `planned` для остальных;
@@ -84,3 +84,16 @@ id, slug, language, title, excerpt, body, published_at, space_name
 `canonical_payload` — стабильная JSON-строка с id, временем, актором, пространством, действием, entity и очищенными metadata. `chain_hash = SHA256(previous_hash | "|" | canonical_payload)`. Проверка сравнивает последовательность и значение `audit_control.last_hash`.
 
 Журнал доступен только платформенной роли. API не имеет update/delete endpoints для событий. Для production дополнительно нужны DB grants/WORM и вынос логов за пределы VPS.
+
+## Stage B: организационные таблицы
+
+Миграции `002_stage_b.sql`, `003_stage_b_compat.sql` и `004_stage_b_activation.sql` аддитивно расширяют базу; вторая включает организационные модули и пустые контейнеры для уже существующих Stage A пространств. Все новые записи содержат `space_id` и проверяются через `AccessService`; кросс-пространственные выборки запрещены.
+
+- Календарь: `calendars`, `calendar_events`, `calendar_event_participants`, `calendar_event_exceptions`, `calendar_event_links`, `calendar_event_history`, `calendar_sync_state`, `calendar_sync_conflicts`, `calendar_tokens`.
+- Задачи: `task_lists`, `tasks`, `task_dependencies`, `task_comments`, `task_attachments`, `task_links`, `task_history`, `task_templates`.
+- Уведомления: `notification_preferences`, `notifications`, `notification_deliveries`, `web_push_subscriptions`, `webhook_endpoints`.
+- Покупки: `shopping_lists`, `shopping_items`, `shopping_presence`, `purchase_history`, `shopping_suggestions`.
+- Публикации и realtime: `public_post_versions`, `realtime_events`.
+- `user_preferences.feed_sources`; `public_posts.status`, `visibility`, `audience_space_ids`, `guest_shared`, `updated_at`, `published_by`, `unpublished_at`.
+
+Версионирование: `calendar_events.version`/`etag`, `tasks.version`, `shopping_lists.version`. `schema_migrations` хранит каждую применённую SQL-миграцию по имени файла. Пароли, CalDAV/webhook-секреты и сессионные токены в открытом виде не хранятся.

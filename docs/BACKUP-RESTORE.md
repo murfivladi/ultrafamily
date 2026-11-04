@@ -7,7 +7,7 @@
 `scripts/backup.sh` создаёт один versioned bundle:
 
 - `database.dump` — `pg_dump --format=custom --no-owner --no-privileges`;
-- `files.tar.gz` — будущие managed files из `FILES_DIR` (Stage A пока не использует файловый модуль);
+- `files.tar.gz` — будущие managed files из `FILES_DIR` (файловый модуль Stage D ещё не реализован);
 - `manifest.json` — product/version/timestamp;
 - `SHA256SUMS` — checksums contents.
 
@@ -89,4 +89,10 @@ A backup that has never been restored is not a backup.
 - [ ] Monitoring/alerts reinstated.
 - [ ] Audit chain verified after recovery.
 
-Stage A scripts are a foundation; they do not yet replace a full monitored backup system with immutable retention, point-in-time recovery and automated restore tests.
+Эти скрипты — основа; они пока не заменяют полноценную мониторируемую систему копий с неизменяемой ретенцией, point-in-time recovery и автоматическими проверками восстановления.
+
+## Stage B
+
+Резервная копия PostgreSQL автоматически включает все таблицы организационного ядра: календари, события, задачи, уведомления, очереди доставки, покупки, историю, версии публикаций и `realtime_events`. Дополнительных файловых томов Stage B не создаёт.
+
+После восстановления проверьте `/api/health`, `/api/dashboard`, `/api/calendar/calendars`, `/api/tasks/board`, `/api/notifications`, `/api/shopping/lists`, `/api/publishing` и `/api/admin/audit/verify`. Миграции применяются автоматически при старте API, но восстановление поверх несовместимой версии схемы должно выполняться только по документированной процедуре отката.

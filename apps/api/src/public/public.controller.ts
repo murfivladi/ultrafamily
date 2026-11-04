@@ -15,11 +15,22 @@ export class PublicController {
 
   @Get('posts')
   async posts(@Query('language') language: unknown): Promise<PublicPost[]> {
+    return this.publishedPosts(language);
+  }
+
+  @Get('news')
+  async news(@Query('language') language: unknown): Promise<PublicPost[]> {
+    return this.publishedPosts(language);
+  }
+
+  private async publishedPosts(language: unknown): Promise<PublicPost[]> {
     const rows = await this.db.query<PublicPostRow>(
       `SELECT p.id, p.slug, p.language, p.title, p.excerpt, p.body,
               p.published_at, s.name AS space_name
        FROM public_posts p JOIN spaces s ON s.id = p.space_id
        WHERE p.language = $1
+         AND p.status = 'published'
+         AND p.visibility = 'public'
          AND p.unpublished_at IS NULL
          AND p.published_at <= CURRENT_TIMESTAMP
        ORDER BY p.published_at DESC LIMIT 20`,
@@ -35,6 +46,8 @@ export class PublicController {
               p.published_at, s.name AS space_name
        FROM public_posts p JOIN spaces s ON s.id = p.space_id
        WHERE p.slug = $1
+         AND p.status = 'published'
+         AND p.visibility = 'public'
          AND p.unpublished_at IS NULL
          AND p.published_at <= CURRENT_TIMESTAMP`,
       [slug],

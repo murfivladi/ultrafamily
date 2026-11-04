@@ -128,7 +128,10 @@ const adultMap: CapabilityMap = {
 
 const childMap: CapabilityMap = {
   ...capabilities(foundationModules, coreRead),
-  ...capabilities(['calendar', 'tasks', 'shopping', 'recipes', 'menu'], coreMember),
+  ...capabilities(
+    ['calendar', 'tasks', 'shopping', 'notifications', 'recipes', 'menu'],
+    coreMember,
+  ),
   ...capabilities(['feed', 'documents', 'journal', 'memories', 'school'], coreMember),
   settings: coreMember,
   dashboard: coreRead,
@@ -224,6 +227,7 @@ export function permissionsForMembership(
   overrides: Record<string, OverrideDecision> = {},
   enabledModuleIds: readonly ModuleId[] = MODULE_IDS,
   sensitiveGrants: readonly string[] = [],
+  isPlatformAdmin = false,
 ): string[] {
   const enabled = new Set(enabledModuleIds);
   const grants = new Set(sensitiveGrants);
@@ -238,6 +242,7 @@ export function permissionsForMembership(
         moduleEnabled: enabled.has(moduleId),
         override: overrides[key],
         sensitiveGrant: grants.has(moduleId),
+        isPlatformAdmin,
       };
       if (resolvePermission(query).allowed) {
         result.push(key);

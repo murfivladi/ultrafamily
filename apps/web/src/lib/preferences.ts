@@ -9,8 +9,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   reduceMotion: false,
   economyMode: false,
   simplifiedUi: false,
-  widgets: ['overview', 'important', 'security', 'activity'],
-  favorites: ['dashboard', 'calendar', 'tasks'],
+  widgets: ['feed', 'overview', 'important', 'security', 'activity'],
+  favorites: ['dashboard', 'calendar', 'tasks', 'notifications', 'shopping'],
+  feedSources: ['calendar', 'tasks', 'notifications', 'shopping', 'family', 'security'],
   quickActions: ['new-task', 'new-event', 'invite'],
 };
 

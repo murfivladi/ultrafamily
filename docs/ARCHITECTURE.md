@@ -2,7 +2,7 @@
 
 ## Форма
 
-Stage A — **модульный монолит** с отдельным frontend-процессом и отдельным API-процессом. Realtime, медиа-workers, office editor и WebRTC не запускаются до соответствующих этапов. Это соответствует ограничению VPS 1–2 CPU / 2–4 GB RAM.
+Stage B остаётся **модульным монолитом** с отдельными frontend- и API-процессами. SSE realtime работает внутри API-процесса через RxJS Subject; медиа-workers, office editor, WebSocket/Yjs и WebRTC не запускаются до соответствующих этапов. Это соответствует ограничению VPS 1–2 CPU / 2–4 GB RAM.
 
 ```text
 Browser
@@ -59,7 +59,7 @@ Browser
 `packages/contracts` содержит:
 
 - типы API (`AuthSnapshot`, `DashboardSnapshot`, `AdminSnapshot`, ...);
-- каталог всех 40 модулей ТЗ с этапом, группой, чувствительностью и ограничениями;
+- каталог всех 41 модуля ТЗ с этапом, группой, чувствительностью и ограничениями;
 - матрицу ролей и функцию `resolvePermission`, одинаковую для сервера и интерфейсных подсказок;
 - генератор effective permissions для membership.
 
@@ -83,3 +83,11 @@ PGlite выбран только как адаптер для тестов и д
 ## ADR-002: hash chain вместо «неизменяемой» таблицы
 
 API не предоставляет endpoints изменения или удаления `audit_events`. Каждая запись включает предыдущий хеш, а `audit_control` хранит последний. `GET /api/admin/audit/verify` пересчитывает цепочку. Для реальной защиты от привилегированного пользователя БД необходимо отдельное append-only хранилище/WORM и DB-роль без `UPDATE/DELETE` — это указано в `SECURITY.md`.
+
+## Stage B
+
+Добавлены NestJS-модули `RealtimeModule`, `NotificationsModule`, `CalendarModule`, `TasksModule`, `ShoppingModule`, `PublishingModule`. `RealtimeModule` и `NotificationsModule` глобальные, поэтому сервисы организационного ядра получают общий канал событий и центр уведомлений без циклических зависимостей. `TasksModule` импортирует `CalendarModule` только для детерминированного разбора `RRULE`.
+
+Браузер использует `/api/*` и `/caldav/*` относительные пути. Next.js проксирует оба на NestJS. `DatabaseService` применяет все SQL-миграции из `src/db/sql` по имени файла; production-сборка копирует каталог целиком в `dist/db/sql`.
+
+SSE рассчитан на один API-процесс. Для нескольких реплик потребуется общий bus (этап C/H); текущая реализация не выдаёт себя за распределённый WebSocket-шлюз.

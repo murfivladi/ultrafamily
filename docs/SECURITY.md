@@ -1,6 +1,6 @@
 # Безопасность и приватность
 
-## Реализовано в Stage A
+## Реализовано в Stage A и Stage B
 
 ### Аутентификация и сессии
 
@@ -45,7 +45,7 @@
 
 ## Production blockers
 
-Stage A **не считается готовым к реальным чувствительным данным**, пока не выполнено:
+Stage B **не считается готовым к реальным чувствительным данным**, пока не выполнено:
 
 1. HTTPS end-to-end, firewall, restricted PostgreSQL port, OS updates and secret rotation.
 2. Separate DB role for application with no `UPDATE/DELETE` on `audit_events`; WORM/object-lock or external log sink.
@@ -69,10 +69,20 @@ Tables and types for some of these features exist, but a schema placeholder is *
 - Private by default; public site reads only `public_posts` with explicit publication state.
 - Data minimization: no persistent raw IP, no tokens/secrets in logs.
 - Child/guest restrictions are enforced by shared server-side policy.
-- AI has no provider adapter, API key or data access in Stage A.
+- В Stage B нет AI-провайдера, ключа и доступа ИИ к данным.
 - No hidden geolocation, face recognition, ad trackers or third-party analytics.
 - E2EE limitations on server search/AI must be shown to users when the vault is implemented.
 
 ## Responsible disclosure
 
 For a private family installation, report suspected vulnerabilities directly to the platform owner out-of-band. Do not put tokens, passwords or private family data into issue descriptions or logs.
+
+## Дополнительно в Stage B
+
+- Каждый новый модуль проверяет `spaceId`, членство, роль, включаемый модуль и действие на сервере. E2E-тест подтверждает изоляцию двух домохозяйств для календаря, задач, покупок и публикаций.
+- `public_site` остаётся недоступным детскому профилю; гость получает только явно помеченные `guest_shared` материалы и только на чтение.
+- Публичный контроллер не возвращает `spaceId`, `createdBy`, `status`, `visibility`, `audienceSpaceIds` или `guestShared`.
+- CalDAV-токены и webhook-секреты хранятся как SHA-256-хеши. Токен привязан к `calendarId`; `If-Match` и версии событий защищают от устаревшей записи.
+- SSE-подключение проходит ту же проверку `dashboard:read` для пространства, что и остальные приватные данные. В heartbeat не передаются данные.
+- Уведомления не используют скрытую геолокацию, публичные рейтинги детей или геймификацию. Webhook подписывается HMAC от хеша секрета; внешние адаптеры без конфигурации помечаются `skipped`.
+- PWA service worker по-прежнему не кэширует `/api/*`.

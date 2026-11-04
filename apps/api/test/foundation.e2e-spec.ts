@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { DatabaseService } from '../src/db/database.service';
 import { createTestApp, householdSpaces, login, type TestAccount } from './test-app';
 
 let app: INestApplication;
@@ -122,6 +123,28 @@ describe('space isolation and hybrid permissions', () => {
       .set('x-csrf-token', owner.csrfToken)
       .send({})
       .expect(403);
+  });
+
+  it('denies household data to a platform administrator even with a membership', async () => {
+    const db = app.get(DatabaseService);
+    const spaceId = householdSpaces(owner).find((space) => space.name === 'Дом Палермо')!.id;
+    await db.query(
+      `INSERT INTO memberships (space_id, user_id, role)
+       VALUES ($1, $2, 'space_owner')
+       ON CONFLICT (space_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+      [spaceId, admin.userId],
+    );
+    await db.query(
+      `INSERT INTO user_preferences (user_id, active_space_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET active_space_id = EXCLUDED.active_space_id`,
+      [admin.userId, spaceId],
+    );
+
+    const snapshot = await admin.agent.get('/api/auth/me').expect(200);
+    expect(snapshot.body.permissions).toEqual([]);
+    await admin.agent.get(`/api/calendar/calendars?spaceId=${spaceId}`).expect(403);
+    await admin.agent.get('/api/dashboard').expect(403);
   });
 
   it('keeps child accounts from issuing invitations', async () => {

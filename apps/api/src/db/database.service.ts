@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PGlite } from '@electric-sql/pglite';
 import { Pool, PoolClient, type QueryResultRow } from 'pg';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../config';
 
@@ -16,7 +16,12 @@ export interface Queryable {
   ): Promise<Row | null>;
 }
 
-const MIGRATION_VERSION = '001_stage_a_foundation';
+// Stage A recorded a single semantic version before migrations became file-based.
+// An existing Stage A database must not re-run 001_init.sql on a Stage B upgrade.
+const LEGACY_MIGRATION_VERSION = '001_stage_a_foundation';
+const LEGACY_VERSION_ALIASES: Record<string, string> = {
+  [LEGACY_MIGRATION_VERSION]: '001_init',
+};
 
 function normalizeParams(params: unknown[]): unknown[] {
   return params.map((value) =>
@@ -79,16 +84,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, Queryable
     await this.migrate();
   }
 
-  private migrationSql(): string {
+  private migrationDirectory(): string {
     const candidates = [
-      path.join(__dirname, 'sql', '001_init.sql'),
-      path.join(process.cwd(), 'src', 'db', 'sql', '001_init.sql'),
-      path.join(process.cwd(), 'apps', 'api', 'src', 'db', 'sql', '001_init.sql'),
-      path.resolve(__dirname, '../../../apps/api/src/db/sql/001_init.sql'),
+      path.join(__dirname, 'sql'),
+      path.join(process.cwd(), 'src', 'db', 'sql'),
+      path.join(process.cwd(), 'apps', 'api', 'src', 'db', 'sql'),
+      path.resolve(__dirname, '../../../apps/api/src/db/sql'),
     ];
     const found = candidates.find((candidate) => existsSync(candidate));
-    if (!found) throw new Error('Could not locate 001_init.sql');
-    return readFileSync(found, 'utf8');
+    if (!found) throw new Error('Could not locate SQL migrations directory');
+    return found;
   }
 
   private async migrate(): Promise<void> {
@@ -98,16 +103,35 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, Queryable
         applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    const applied = await this.rawQueryOne<{ version: string }>(
-      'SELECT version FROM schema_migrations WHERE version = $1',
-      [MIGRATION_VERSION],
-    );
-    if (applied) return;
-    await this.rawExec(this.migrationSql());
-    await this.rawQuery(
-      'INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING',
-      [MIGRATION_VERSION],
-    );
+    for (const [legacyVersion, currentVersion] of Object.entries(LEGACY_VERSION_ALIASES)) {
+      const legacyApplied = await this.rawQueryOne<{ version: string }>(
+        'SELECT version FROM schema_migrations WHERE version = $1',
+        [legacyVersion],
+      );
+      if (legacyApplied) {
+        await this.rawQuery(
+          'INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING',
+          [currentVersion],
+        );
+      }
+    }
+    const directory = this.migrationDirectory();
+    const files = readdirSync(directory)
+      .filter((file) => file.endsWith('.sql'))
+      .sort();
+    for (const file of files) {
+      const version = path.basename(file, '.sql');
+      const applied = await this.rawQueryOne<{ version: string }>(
+        'SELECT version FROM schema_migrations WHERE version = $1',
+        [version],
+      );
+      if (applied) continue;
+      await this.rawExec(readFileSync(path.join(directory, file), 'utf8'));
+      await this.rawQuery(
+        'INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING',
+        [version],
+      );
+    }
   }
 
   private async rawExec(sql: string): Promise<void> {
