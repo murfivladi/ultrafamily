@@ -86,11 +86,38 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: npm run release:ftp -- "$VERSION"
 
+      - name: Verify FTP payload contents
+        run: |
+          set -euo pipefail
+          for target in backend frontend; do
+            root="releases/ftp/$target"
+            test -f "$root/.env.example"
+            test -f "$root/RELEASE.json"
+            test -f "$root/FTP-NOTES.txt"
+            test -f "$root/ENV-SETUP.txt"
+            test -f "$root/package.json"
+            test -f "$root/package-lock.json"
+          done
+          test -f releases/ftp/backend/apps/api/dist/main.js
+          test -f releases/ftp/frontend/apps/web/.next/trace
+          test -d releases/ftp/frontend/apps/web/.next/static
+          test -d releases/ftp/frontend/apps/web/public
+          echo 'Frontend .next root:'
+          find releases/ftp/frontend/apps/web/.next -maxdepth 1 -printf '%f\n' | sort
+
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: ufos-ftp-backend-${{ steps.meta.outputs.version }}
-          path: releases/ftp/backend
+          path: |
+            releases/ftp/backend/
+            !releases/ftp/backend/.env
+            !releases/ftp/backend/**/.env
+            !releases/ftp/backend/**/.env.local
+            !releases/ftp/backend/**/.env.*.local
+            !releases/ftp/backend/**/node_modules/
+            !releases/ftp/backend/**/.git/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
 
@@ -98,7 +125,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ufos-ftp-frontend-${{ steps.meta.outputs.version }}
-          path: releases/ftp/frontend
+          path: |
+            releases/ftp/frontend/
+            !releases/ftp/frontend/.env
+            !releases/ftp/frontend/**/.env
+            !releases/ftp/frontend/**/.env.local
+            !releases/ftp/frontend/**/.env.*.local
+            !releases/ftp/frontend/**/node_modules/
+            !releases/ftp/frontend/**/.git/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
 
@@ -160,6 +195,14 @@ jobs:
           echo "FTP settings: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
           test -d "$LOCAL_DIR"
           test -f "$LOCAL_DIR/RELEASE.json"
+          test -f "$LOCAL_DIR/.env.example"
+          if [[ "$FTP_TARGET" == 'frontend' ]]; then
+            test -f "$LOCAL_DIR/apps/web/.next/trace"
+            test -d "$LOCAL_DIR/apps/web/.next/static"
+            test -d "$LOCAL_DIR/apps/web/public"
+          else
+            test -f "$LOCAL_DIR/apps/api/dist/main.js"
+          fi
 
       - name: Upload backend
         env:
@@ -224,6 +267,14 @@ jobs:
           echo "FTP settings: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
           test -d "$LOCAL_DIR"
           test -f "$LOCAL_DIR/RELEASE.json"
+          test -f "$LOCAL_DIR/.env.example"
+          if [[ "$FTP_TARGET" == 'frontend' ]]; then
+            test -f "$LOCAL_DIR/apps/web/.next/trace"
+            test -d "$LOCAL_DIR/apps/web/.next/static"
+            test -d "$LOCAL_DIR/apps/web/public"
+          else
+            test -f "$LOCAL_DIR/apps/api/dist/main.js"
+          fi
 
       - name: Upload frontend
         env:

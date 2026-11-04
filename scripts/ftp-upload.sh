@@ -76,6 +76,7 @@ chmod 600 "$GENERATED"
 lftp_common() {
   cat <<EOF
 set cmd:fail-exit yes
+set ftp:list-options -a
 set ftp:passive-mode true
 set ssl:verify-certificate $FTP_VERIFY_CERT
 set net:max-retries 3
@@ -94,6 +95,8 @@ EOF
   fi
 }
 
+# Hidden paths matter here: .next/ and .env.example are part of the payload.
+# ftp:list-options -a makes lftp see dot-directories on restricted FTP servers.
 # Shared-hosting FTP often disables SITE/MFF entirely. Keep server-side
 # default permissions and timestamps instead of trying chmod over FTP.
 # LFTP_PASSWORD alone is ignored by lftp: --env-password is mandatory.
@@ -139,7 +142,7 @@ echo "Uploading contents of $LOCAL_DIR_ABS into FTP root ./ ..."
   printf '%s\n' \
     'cd ./' \
     "lcd \"$LOCAL_DIR_ABS\"" \
-    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude .env --exclude .env.local --exclude .env.*.local --exclude node_modules/ --exclude .git/' \
+    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob node_modules/ --exclude-glob .git/' \
     "put \"$MERGED\" -o .env" \
     'bye'
 } | run_lftp
