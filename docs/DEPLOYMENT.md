@@ -27,11 +27,13 @@
 - загрузка без `SITE CHMOD`/`MFF`: права файлов задаёт сервер, workflow не меняет permissions;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
+Workflow загружает **содержимое** двух GitHub Artifact напрямую в корень `./` каждого FTP-аккаунта; локальная папка `payload/` runner'а на FTP не создаётся. Старую `./artifact/` от предыдущих запусков удалите вручную: `mirror -R` не использует `--delete`.
+
 Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит `.next`, `public`, `next.config.mjs`, contracts и manifests. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
 
 ## `.env`
 
-Канонический `.env` лежит в **корне каждого FTP-релиза**. API и Next.js config ищут его от текущего каталога вверх; отдельные `apps/api/.env` и `apps/web/.env` не нужны.
+Канонический `.env` лежит в **корне `./` каждого FTP-аккаунта**, рядом с `package.json` и `RELEASE.json`, а не внутри `artifact/` или `payload/`. API и Next.js config ищут его от текущего каталога вверх; отдельные `apps/api/.env` и `apps/web/.env` не нужны. Точные примеры для backend и frontend лежат в корне payload'а в `ENV-SETUP.txt` и подробно описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md#как-настроить-env).
 
 Автоматически генерируются и дописываются только отсутствующие ключи:
 

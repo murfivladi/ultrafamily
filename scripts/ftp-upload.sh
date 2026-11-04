@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Upload one FTP payload to ./ and merge automatically generated keys into
-# the existing root .env. FTPS is required; no SSH or remote shell is used.
+# Upload the CONTENTS of one FTP payload into the FTP account root (./).
+# Merge automatically generated keys into the existing root .env.
+# FTPS is required; no SSH or remote shell is used.
 set -euo pipefail
 
 : "${FTP_TARGET:?FTP_TARGET is required}"
@@ -50,8 +51,9 @@ if [[ ! -d "$LOCAL_DIR" ]]; then
   echo "Local payload directory not found: $LOCAL_DIR" >&2
   exit 1
 fi
+LOCAL_DIR_ABS="$(cd "$LOCAL_DIR" && pwd)"
 
-echo "FTPS diagnostics: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE remote=./ verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
+echo "FTPS diagnostics: target=$FTP_TARGET host=$FTP_HOST port=$FTP_PORT user=$FTP_USER tls=$FTP_TLS_MODE local_payload=$LOCAL_DIR_ABS remote_root=./ verify_cert=$FTP_VERIFY_CERT password_length=${#FTP_PASSWORD}"
 
 if [[ "$FTP_TLS_MODE" == 'implicit' ]]; then
   FTP_SITE="ftps://$FTP_HOST"
@@ -128,11 +130,16 @@ ENV_EXISTING="$EXISTING" ENV_GENERATED="$GENERATED" ENV_MERGED="$MERGED" \
   node "$ROOT/scripts/merge-env.mjs"
 chmod 600 "$MERGED"
 
-echo "Uploading $FTP_TARGET payload to ./ ..."
+# lftp's mirror with an explicit source directory can append that directory
+# name to the remote target. Instead, enter the payload with lcd and call
+# mirror -R without source/target: current local dir -> current remote dir.
+echo "Uploading contents of $LOCAL_DIR_ABS into FTP root ./ ..."
 {
   lftp_common
   printf '%s\n' \
-    "mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude .env --exclude .env.local --exclude .env.*.local --exclude node_modules/ --exclude .git/ \"$LOCAL_DIR\" ./" \
+    'cd ./' \
+    "lcd \"$LOCAL_DIR_ABS\"" \
+    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude .env --exclude .env.local --exclude .env.*.local --exclude node_modules/ --exclude .git/' \
     "put \"$MERGED\" -o .env" \
     'bye'
 } | run_lftp

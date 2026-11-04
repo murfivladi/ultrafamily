@@ -35,6 +35,26 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 
 Пароль передаётся только через `LFTP_PASSWORD` вместе с обязательным флагом `lftp --env-password`, а не в командной строке. Секреты должны быть созданы на уровне репозитория: **Settings → Secrets and variables → Actions → Secrets**. Если использовать Environment secrets, job должен явно ссылаться на этот environment.
 
+## Куда именно загружаются файлы
+
+В runner GitHub Actions artifact распаковывается во временную локальную папку `payload/`. Это **не каталог на FTP**.
+
+`scripts/ftp-upload.sh` делает `lcd payload/` и вызывает `mirror -R` без source/target: по документации `lftp` в этом случае используются текущий локальный и текущий удалённый каталоги [4](https://linux.die.net/man/1/lftp). Поэтому на FTP загружается **содержимое** payload прямо в корень `./`:
+
+```text
+./package.json
+./package-lock.json
+./RELEASE.json
+./FTP-NOTES.txt
+./ENV-SETUP.txt
+./.env.example
+./.env
+./apps/...
+./packages/...
+```
+
+Папок `artifact/` или `payload/` на FTP создаваться не должно. Если от предыдущих запусков уже осталась `./artifact/`, удалите её вручную в файловом менеджере хостинга: `mirror -R` намеренно работает без `--delete` и не удаляет старые файлы.
+
 ## Запуск
 
 В **Actions → FTP deploy → Run workflow** выберите:
@@ -65,17 +85,68 @@ Frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PR
 
 Канонический `.env` находится в корне каждого релиза. `apps/api/src/config.ts` и `apps/web/next.config.mjs` ищут его от текущего каталога вверх, поэтому отдельные `apps/api/.env` и `apps/web/.env` создавать не нужно.
 
-## Что вводите вы
+## Как настроить `.env`
 
-В тот же `.env` вручную добавьте installation-specific значения, например:
+У **каждого FTP-аккаунта свой корневой `.env`**: отдельно для backend и отдельно для frontend. Редактируйте именно `./.env` в корне FTP-аккаунта, а не файл внутри старой `artifact/`, не `apps/api/.env` и не `apps/web/.env`. Шаблоны лежат рядом: `.env.example` и `ENV-SETUP.txt`.
+
+### 1. Что делает workflow сам
+
+После каждого запуска workflow читает существующий `./.env`, генерирует автоматические значения и дописывает **только отсутствующие ключи**. Ваши строки, комментарии и уже введённые значения не перезаписываются. Если `.env` ещё не было, он создаётся.
+
+Автоматически:
+
+- общие: `NODE_ENV=production`, `APP_VERSION`, `APP_ORIGIN` при наличии одноимённой GitHub Variable;
+- backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT=3001`, `DB_DRIVER=postgres`, `DATABASE_SSL=false`, `DB_POOL_SIZE=8`, `PGLITE_DATA_DIR=.data/pglite`, `SEED_DEMO_DATA=false`;
+- frontend: `WEB_PORT=3000`, `NEXT_PUBLIC_DEMO_PASSWORD=`, `API_PROXY_ORIGIN` при наличии одноимённой GitHub Variable.
+
+`BOOTSTRAP_OWNER_PASSWORD` генерируется один раз. После первого деплоя откройте backend `./.env`, прочитайте этот пароль и используйте его вместе с `BOOTSTRAP_OWNER_EMAIL` для первого входа. Не удаляйте и не дублируйте эту строку; если нужен другой пароль до первого входа — отредактируйте существующую строку.
+
+### 2. Что ввести в backend `.env`
+
+Минимум:
 
 ```dotenv
-DATABASE_URL=postgres://…
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE
 APP_ORIGIN=https://family.example
+```
+
+`DATABASE_URL` обязателен: в production API не запустится без PostgreSQL. `APP_ORIGIN` должен точно совпадать с публичным origin сайта, без завершающего `/`; он участвует в проверке origin/CORS. При необходимости измените уже существующие автоматические строки, а не добавляйте дубликаты:
+
+```dotenv
+# примеры только если значения по умолчанию не подходят
+# API_PORT=3101
+# DATABASE_SSL=true
+# DB_POOL_SIZE=8
+# BOOTSTRAP_OWNER_EMAIL=admin@family.example
+# SMTP_URL=smtp://...
+# TELEGRAM_BOT_TOKEN=...
+```
+
+### 3. Что ввести в frontend `.env`
+
+Обычно нужен адрес, по которому Next.js процесс может достучаться до Nest API:
+
+```dotenv
 API_PROXY_ORIGIN=http://127.0.0.1:3001
 ```
 
-Остальные настройки первого запуска вводятся в уже существующей админке платформы; новый setup-визард не добавлялся. Шаблон всех ключей лежит в `.env.example` внутри payload'а.
+Если API слушает другой порт/хост, укажите его. При необходимости:
+
+```dotenv
+# WEB_PORT=3100
+# APP_ORIGIN=https://family.example
+```
+
+Можно не вводить `APP_ORIGIN` и `API_PROXY_ORIGIN` вручную, а создать одноимённые **GitHub Variables** — тогда workflow добавит их в оба `.env` автоматически, но всё равно не перезапишет уже существующие строки.
+
+### 4. После правки
+
+1. Сохраните `./.env` в корне соответствующего FTP-аккаунта.
+2. Перезапустите процессы в админке сервера: `npm run start:prod -w @ufos/api` и `npm run start -w @ufos/web`.
+3. Первый вход сделайте с email/паролем из backend `.env`.
+4. Остальные первичные настройки — название семьи, пользователи, модули и т.п. — введите в уже существующей админке платформы. Новый setup-визард не добавлялся.
+
+Если админка сервера задаёт переменные окружения напрямую, они имеют приоритет над `.env`: загрузчик заполняет только те `process.env`, которые ещё не определены.
 
 ## Первый запуск на сервере
 
