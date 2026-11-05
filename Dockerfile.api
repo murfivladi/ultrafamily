@@ -12,5 +12,5 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app ./
-EXPOSE 3001
+EXPOSE 25031
 CMD ["npm", "run", "start:prod", "-w", "@ufos/api"]

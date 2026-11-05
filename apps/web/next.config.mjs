@@ -27,6 +27,13 @@ for (let level = 0; level < 3; level += 1) {
   loadEnvFile(path.join(parent, '.env'));
   parent = path.dirname(parent);
 }
+const configuredApiOrigin = process.env.API_PROXY_ORIGIN || 'http://127.0.0.1:25031';
+if (configuredApiOrigin === 'https://api.family.vladislavb.qzz.io') {
+  throw new Error(
+    'API_PROXY_ORIGIN must use the internal backend http://127.0.0.1:25031; the public HTTPS domain caused EPROTO SSL alert 40 in the Next.js proxy.',
+  );
+}
+
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -36,7 +43,7 @@ const nextConfig = {
   allowedDevOrigins: ['*.e2b.app'],
   transpilePackages: ['@ufos/contracts'],
   async rewrites() {
-    const apiOrigin = process.env.API_PROXY_ORIGIN || 'http://127.0.0.1:3001';
+    const apiOrigin = configuredApiOrigin;
     return [
       {
         source: '/caldav/:path*',

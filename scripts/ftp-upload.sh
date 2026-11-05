@@ -132,6 +132,12 @@ fi
 ENV_EXISTING="$EXISTING" ENV_GENERATED="$GENERATED" ENV_MERGED="$MERGED" \
   node "$ROOT/scripts/merge-env.mjs"
 chmod 600 "$MERGED"
+if grep -Eq '^API_PROXY_ORIGIN=https://api\.family\.vladislavb\.qzz\.io\s*$' "$MERGED"; then
+  echo "WARNING: frontend .env still uses the external HTTPS API origin; edit it to http://127.0.0.1:25031 and rerun ftp.yml." >&2
+fi
+if [[ "$FTP_TARGET" == 'backend' ]] && grep -Eq '^API_PORT=3001\s*$' "$MERGED"; then
+  echo 'WARNING: backend .env still uses API_PORT=3001; edit the existing line to API_PORT=25031.' >&2
+fi
 
 # lftp's mirror with an explicit source directory can append that directory
 # name to the remote target. Instead, enter the payload with lcd and call

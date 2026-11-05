@@ -18,12 +18,16 @@ FRONTEND="$OUT/frontend"
 rm -rf "$BACKEND" "$FRONTEND"
 mkdir -p "$BACKEND" "$FRONTEND"
 
-# next.config.mjs reads API_PROXY_ORIGIN while producing .next. Use the
-# configured public API origin unless the caller explicitly overrides it.
-export API_PROXY_ORIGIN="${API_PROXY_ORIGIN:-https://api.family.vladislavb.qzz.io}"
+# next.config.mjs reads API_PROXY_ORIGIN while producing .next. Keep this
+# INTERNAL: an external HTTPS proxy caused EPROTO SSL alert 40 on the hosting.
+export API_PROXY_ORIGIN="${API_PROXY_ORIGIN:-http://127.0.0.1:25031}"
+if [ "$API_PROXY_ORIGIN" = 'https://api.family.vladislavb.qzz.io' ]; then
+  echo 'Use the internal backend http://127.0.0.1:25031 for API_PROXY_ORIGIN, not the public HTTPS domain.' >&2
+  exit 1
+fi
 
 echo "Building contracts, API and web application for FTP release $VERSION..."
-echo "Frontend API origin: $API_PROXY_ORIGIN"
+echo "Frontend internal API origin: $API_PROXY_ORIGIN"
 npm run build
 
 for target in "$BACKEND" "$FRONTEND"; do
@@ -53,6 +57,7 @@ for pair in "backend:$BACKEND" "frontend:$FRONTEND"; do
   "buildMode": "backend-and-frontend-in-actions",
   "frontendPort": 26287,
   "apiProxyOrigin": "$API_PROXY_ORIGIN",
+  "apiPublicOrigin": "https://api.family.vladislavb.qzz.io",
   "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "gitCommit": "$COMMIT"
 }
@@ -68,9 +73,10 @@ account root (./). No artifact/ or payload/ folder is created.
 Backend is already compiled in GitHub Actions. Do not run next build here.
 
 1. At the release root run: npm ci --omit=dev
-2. Start the API: npm run start:prod -w @ufos/api
+2. Start the API on API_PORT=25031: npm run start:prod -w @ufos/api
 3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
+   If API_PORT there is still 3001, edit that existing line to 25031.
 4. Use the existing platform admin panel for first-launch settings.
 EOF
 
@@ -90,7 +96,8 @@ excluded: they are not needed by `next start` and can be very large.
 3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
 4. Browser /api and /caldav requests are rewritten to
-   https://api.family.vladislavb.qzz.io at build time.
+   http://127.0.0.1:25031 at build time.
+   The public address https://api.family.vladislavb.qzz.io is documentation/reverse-proxy only.
 EOF
 
 cat > "$BACKEND/ENV-SETUP.txt" <<'EOF'
@@ -98,7 +105,7 @@ Backend .env — edit ./.env in the backend FTP root
 
 The workflow already added these generated keys; do not duplicate them:
   NODE_ENV, APP_VERSION, SESSION_SECRET, BOOTSTRAP_OWNER_PASSWORD,
-  BOOTSTRAP_OWNER_EMAIL, API_PORT=3001, DB_DRIVER, DATABASE_SSL, DB_POOL_SIZE,
+  BOOTSTRAP_OWNER_EMAIL, API_PORT=25031, DB_DRIVER, DATABASE_SSL, DB_POOL_SIZE,
   PGLITE_DATA_DIR, SEED_DEMO_DATA, and APP_ORIGIN if the GitHub variable exists.
 
 APP_ORIGIN was already set by you in ./.env. It is NOT overwritten.
@@ -111,7 +118,7 @@ Add at least these values yourself:
 
 Optional overrides, only if the defaults do not fit your hosting:
 
-  # API_PORT=3101
+  # API_PORT=25031
   # DATABASE_SSL=true
   # DB_POOL_SIZE=8
   # SMTP_URL=smtp://...
@@ -130,7 +137,7 @@ Frontend .env — edit ./.env in the frontend FTP root
 
 The workflow already added these generated keys; do not duplicate them:
   NODE_ENV, APP_VERSION, WEB_PORT=26287, NEXT_PUBLIC_DEMO_PASSWORD,
-  API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io,
+  API_PROXY_ORIGIN=http://127.0.0.1:25031,
   APP_ORIGIN if the GitHub variable exists.
 
 APP_ORIGIN was already set by you in ./.env. It is NOT overwritten.
@@ -138,9 +145,13 @@ If the GitHub Variable APP_ORIGIN is set but .env still has an old value,
 the .env value wins. Edit the existing line, do not add a duplicate key.
 
 The frontend .next build produced in Actions already targets
-https://api.family.vladislavb.qzz.io for /api and /caldav rewrites.
-If that API origin changes, rerun the FTP workflow to rebuild .next;
-editing only .env is not enough for a change baked into next.config.mjs.
+http://127.0.0.1:25031 for /api and /caldav rewrites. Do NOT put
+https://api.family.vladislavb.qzz.io into API_PROXY_ORIGIN: that external HTTPS request failed
+with EPROTO / SSL alert number 40.
+
+If the backend port changes, edit the existing API_PROXY_ORIGIN line in
+./.env and rerun the FTP workflow to rebuild .next. The workflow merges
+only missing .env keys and will not overwrite an old external value.
 
 Start command:
 

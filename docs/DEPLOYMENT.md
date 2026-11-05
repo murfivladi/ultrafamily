@@ -41,7 +41,7 @@ Workflow загружает два GitHub Artifact по отдельности. 
 
 - общие: `NODE_ENV`, `APP_VERSION`, при наличии `APP_ORIGIN`;
 - backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`;
-- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
+- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=http://127.0.0.1:25031`.
 
 Существующие строки, комментарии и вручную введённые значения не перезаписываются. Сгенерированный `BOOTSTRAP_OWNER_PASSWORD` можно прочитать в `.env` на FTP; он не выводится в логи GitHub.
 
@@ -50,10 +50,10 @@ Workflow загружает два GitHub Artifact по отдельности. 
 ```dotenv
 DATABASE_URL=postgres://…
 APP_ORIGIN=https://family.example
-API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io
+API_PROXY_ORIGIN=http://127.0.0.1:25031
 ```
 
-`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN` зашит в `.next` при сборке в Actions; при смене API-адреса перезапустите `ftp.yml`. Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
+`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN=http://127.0.0.1:25031` зашит в `.next` при сборке в Actions; при смене внутреннего порта отредактируйте существующую строку `.env` и перезапустите `ftp.yml`. Внешний `https://api.family.vladislavb.qzz.io` — только публичный reverse proxy, его нельзя указывать в `API_PROXY_ORIGIN`: это даёт `EPROTO / SSL alert number 40`. Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
 ## Первый запуск
 
@@ -65,7 +65,7 @@ npm run start:prod -w @ufos/api
 npm run start -w @ufos/web
 ```
 
-Frontend слушает порт `26287`; backend остаётся на `API_PORT=3001`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на `https://api.family.vladislavb.qzz.io`. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
+Frontend слушает порт `26287`; backend слушает `API_PORT=25031`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Next.js направляет `/api` и `/caldav` на внутренний `http://127.0.0.1:25031`; `https://api.family.vladislavb.qzz.io` остаётся публичным адресом reverse proxy. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
 ## Обновление
 
