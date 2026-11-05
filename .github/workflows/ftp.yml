@@ -95,6 +95,7 @@ jobs:
             root="releases/ftp/$target"
             test -f "$root/.env.example"
             test -f "$root/.nvmrc"
+            test -f "$root/.npmrc"
             test -f "$root/RELEASE.json"
             test -f "$root/FTP-NOTES.txt"
             test -f "$root/ENV-SETUP.txt"

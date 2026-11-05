@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build backend and frontend in GitHub Actions; upload two prebuilt FTP payloads.
-# Both keep root manifests so `npm ci --omit=dev` works on the server.
+# Both keep root manifests so a workspace-scoped `npm ci --omit=dev
+# --workspace=@ufos/api|@ufos/web` works on the server without installing
+# the whole monorepo (a full install OOMs on low-memory hosting).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,7 +34,7 @@ npm run build
 
 for target in "$BACKEND" "$FRONTEND"; do
   mkdir -p "$target/packages/contracts" "$target/apps/api" "$target/apps/web"
-  cp package.json package-lock.json tsconfig.base.json .nvmrc .env.example README.md "$target/"
+  cp package.json package-lock.json tsconfig.base.json .nvmrc .npmrc .env.example README.md "$target/"
   cp packages/contracts/package.json "$target/packages/contracts/"
   cp -R packages/contracts/dist "$target/packages/contracts/"
   cp apps/api/package.json "$target/apps/api/"
@@ -72,7 +74,12 @@ account root (./). No artifact/ or payload/ folder is created.
 
 Backend is already compiled in GitHub Actions. Do not run next build here.
 
-1. At the release root run: npm ci --omit=dev
+1. At the release root install ONLY the API workspace:
+     npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
+   Do NOT run a bare `npm ci --omit=dev` here: it installs every workspace
+   (including Next.js/React for the frontend) and peaks at ~0.8 GB RAM,
+   which gets the process OOM-killed on 1-2 GB hosting. The scoped install
+   above peaks at ~0.25 GB and is enough for the API.
 2. Start the API on API_PORT=25031: npm run start:prod -w @ufos/api
 3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
@@ -90,7 +97,13 @@ Frontend is already compiled in GitHub Actions: apps/web/.next is included.
 The .next/cache webpack build cache and *.pack files are deliberately
 excluded: they are not needed by `next start` and can be very large.
 
-1. At the release root run: npm ci --omit=dev
+1. At the release root install ONLY the web workspace:
+     npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/web --include-workspace-root=false
+   Do NOT run a bare `npm ci --omit=dev` here: it installs every workspace
+   (including NestJS/Jest for the backend) and peaks at ~0.8 GB RAM, which
+   gets the process OOM-killed on 1-2 GB hosting. Even scoped, Next.js
+   packages are large, so stop the API/other Node processes during install
+   and prefer a host with >=1 GB free RAM (or add swap).
 2. Start the web server: npm run start -w @ufos/web
    It listens on WEB_PORT=26287 by default.
 3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.

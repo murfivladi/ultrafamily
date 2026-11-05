@@ -166,10 +166,13 @@ API_PROXY_ORIGIN=http://127.0.0.1:25031
 Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
 
 ```bash
-npm ci --omit=dev
-# backend
+# backend-аккаунт: только API-workspace (голая npm ci --omit=dev ставит весь
+# монорепозиторий и падает с OOM на хостинге с 1-2 ГБ RAM, см. DEPLOYMENT.md)
+npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
 npm run start:prod -w @ufos/api
-# frontend, порт 26287
+
+# frontend-аккаунт: только web-workspace, порт 26287
+npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/web --include-workspace-root=false
 npm run start -w @ufos/web
 ```
 

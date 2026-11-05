@@ -57,13 +57,36 @@ API_PROXY_ORIGIN=http://127.0.0.1:25031
 
 ## Первый запуск
 
-Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
+Через админку сервера/хостинга, в корне каждого FTP-аккаунта. Ставьте зависимости **только для нужного workspace** — голая `npm ci --omit=dev` ставит весь монорепозиторий и на хостинге с 1–2 ГБ RAM умирает от OOM (см. ниже):
 
 ```bash
-npm ci --omit=dev
+# backend-аккаунт
+npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
 npm run start:prod -w @ufos/api
+
+# frontend-аккаунт
+npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/web --include-workspace-root=false
 npm run start -w @ufos/web
 ```
+
+### Если `npm ci` падает с OOM (Killed / JavaScript heap out of memory)
+
+Причина почти всегда одна: установка всего монорепозитория сразу. Замеренный пиковый RSS на этом lock-файле:
+
+| Команда                                                                  | Пакетов | Пик RAM                                       |
+| ------------------------------------------------------------------------ | ------- | --------------------------------------------- |
+| `npm ci` (полная, с dev)                                                 | 706     | ~0,9–1,1 ГБ                                   |
+| `npm ci --omit=dev` (все workspace)                                      | 159     | ~0,8 ГБ                                       |
+| `npm ci --omit=dev --workspace=@ufos/api --include-workspace-root=false` | 137     | ~0,25 ГБ                                      |
+| `npm ci --omit=dev --workspace=@ufos/web --include-workspace-root=false` | 35      | ~0,7 ГБ (пакеты Next.js сами по себе большие) |
+
+Что делать:
+
+1. Используйте scoped-команды из «Первого запуска» выше — это основное исправление. Корневой `.npmrc` (он лежит и в обоих payload'ах) дополнительно отключает audit/fund/update-notifier и ограничивает параллельность загрузок (`maxsockets=4`).
+2. На время установки остановите остальные Node-процессы (API, web, ws-proxy): npm нужен весь свободный объём.
+3. Если свободной RAM меньше ~1 ГБ, добавьте swap, например 2 ГБ: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` (на shared-хостинге без root это недоступно — тогда поможет только пункт 1 и остановка процессов).
+4. Не лечите OOM увеличением `--max-old-space-size` вслепую: при жёстком лимите контейнера/хостинга это лишь меняет «Killed» на «JavaScript heap out of memory». Значение имеет смысл ставить только чуть ниже реального свободного объёма, например `NODE_OPTIONS=--max-old-space-size=1536` при 2 ГБ свободной RAM.
+5. `--ignore-scripts` в командах выше безопасен для этого дерева зависимостей (нативные бинарники Next/sharp/PGlite приезжают готовыми optional-пакетами) и убирает дочерние процессы установки.
 
 Frontend слушает порт `26287`; backend слушает `API_PORT=25031`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Next.js направляет `/api` и `/caldav` на внутренний `http://127.0.0.1:25031`; `https://api.family.vladislavb.qzz.io` остаётся публичным адресом reverse proxy. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
