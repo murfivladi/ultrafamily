@@ -95,7 +95,7 @@
 
 ## Версионирование
 
-Stage A и Stage B не обещают стабильного публичного API. Версия возвращается в `/api/health`. Публичный API с OAuth, scoped tokens, webhooks и документацией входит в Этап H.
+Stage A, Stage B и Stage C не обещают стабильного публичного API. Версия возвращается в `/api/health`. Публичный API с OAuth, scoped tokens, webhooks и документацией входит в Этап H.
 
 ## Stage B endpoints
 
@@ -112,3 +112,16 @@ Stage A и Stage B не обещают стабильного публичног
 - Public: `GET /api/public/posts`, `GET /api/public/news`, `GET /api/public/posts/:slug`. Публичная выдача содержит только явно опубликованные `public` материалы и безопасные поля.
 
 Детали ограничений и форматов — в [STAGE-B.md](STAGE-B.md).
+
+## Stage C endpoints
+
+Все маршруты требуют сессии, CSRF для изменяющих методов и `spaceId` в query или теле.
+
+- Realtime WebSocket: `GET /ws` (upgrade) — вне `/api`. Протокол: `hello`, `subscribe`, `presence`, `cursor`, `doc:sync`, `doc:request-state`, `call:signal`, `call:state`, `ping`. Закрытия: `4401` без сессии, `4403` без CSRF/чужое пространство. Типы — `packages/contracts/src/stage-c.ts`.
+- Messenger: `GET|POST /api/messenger/chats`, `GET|PATCH /api/messenger/chats/:id`, `POST /api/messenger/chats/:id/members`, `DELETE /api/messenger/chats/:id/members/:memberId`, `PATCH /api/messenger/chats/:id/members/:memberId/role`, `PATCH /api/messenger/chats/:id/notifications`, `GET|POST /api/messenger/chats/:id/messages`, `GET /api/messenger/chats/:id/pinned|moderation`, `GET /api/messenger/chats/:id/threads/:rootId`, `POST /api/messenger/chats/:id/read|moderation`, `PATCH|DELETE /api/messenger/messages/:id`, `GET /api/messenger/messages/:id/versions`, `POST /api/messenger/messages/:id/reactions|pin`, `GET /api/messenger/search`.
+- Feed: `GET|POST /api/feed/posts`, `GET|PATCH|DELETE /api/feed/posts/:id`, `POST /api/feed/posts/:id/comments|reactions`, `POST /api/feed/auto-events`, `GET|PATCH /api/feed/sources`.
+- Decisions: `GET|PATCH /api/decisions/governance`, `GET|POST /api/decisions/polls`, `GET /api/decisions/polls/:id`, `POST /api/decisions/polls/:id/votes|close`, `GET|POST /api/decisions/proposals`, `GET|PATCH /api/decisions/proposals/:id`, `POST /api/decisions/proposals/:id/status|votes|decide`, `GET|POST /api/decisions/wishlists`, `PATCH|DELETE /api/decisions/wishlists/:id`, `POST /api/decisions/wishlists/:id/items`, `PATCH|DELETE /api/decisions/wishlists/:id/items/:itemId`, `GET /api/decisions/history`.
+- Documents: `GET|POST /api/documents`, `GET|PATCH|DELETE /api/documents/:id`, `POST /api/documents/:id/content`, `GET /api/documents/:id/versions`, `POST /api/documents/:id/restore`, `GET|POST /api/documents/:id/collaborators`, `GET|POST /api/documents/:id/comments`, `POST /api/documents/:id/comments/:commentId/resolve`, `POST /api/documents/:id/presence`.
+- Calls: `GET|POST /api/calls/rooms`, `GET /api/calls/rooms/:id`, `POST /api/calls/rooms/:id/join|leave|close|state`, `GET /api/calls/rooms/:id/signals`, `GET /api/calls/rooms/:id/diagnostics`, `GET /api/calls/ice-servers`.
+
+Детали, включая границы WebRTC и Yjs, — в [STAGE-C.md](STAGE-C.md).

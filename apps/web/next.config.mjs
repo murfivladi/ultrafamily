@@ -41,7 +41,23 @@ const nextConfig = {
   // methods and bodies instead of answering with Next.js' 308 redirect.
   skipTrailingSlashRedirect: true,
   allowedDevOrigins: ['*.e2b.app'],
-  transpilePackages: ['@ufos/contracts'],
+  // Yjs is compiled for both the client and the server graph so exactly one
+  // module instance exists (see the webpack alias below).
+  transpilePackages: ['@ufos/contracts', 'yjs'],
+  // Yjs ships both CJS and ESM builds. Without a single resolution path the
+  // SSR and client graph can load two copies, which breaks `instanceof` checks
+  // ("Yjs was already imported"). Pin one module and ask Next to compile it.
+  webpack: (webpackConfig) => {
+    webpackConfig.resolve.alias = {
+      ...webpackConfig.resolve.alias,
+      yjs$: path.resolve(cwd, '../../node_modules/yjs/dist/yjs.mjs'),
+    };
+    return webpackConfig;
+  },
+  // The Stage C collaboration gateway lives at /ws on the API process. HTTP
+  // rewrites cannot upgrade a connection, so the WebSocket path is proxied by
+  // the small server in scripts/ws-proxy.mjs during development and by the
+  // reverse proxy in production (see docs/STAGE-C.md).
   async rewrites() {
     const apiOrigin = configuredApiOrigin;
     return [

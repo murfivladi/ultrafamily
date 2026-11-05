@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { FOUNDATION_MODULE_IDS, MODULE_IDS } from '@ufos/contracts';
 import { config, newId, sha256 } from '../config';
 import { PasswordService } from '../common/password.service';
-import { DatabaseService } from './database.service';
+import { DatabaseService, type Queryable } from './database.service';
 
 const DEMO_INVITE_TOKEN = 'WELCOME-UFOS-2026';
 
@@ -473,6 +473,179 @@ export class SeedService implements OnModuleInit {
           [newId('ppv'), id, post.title, post.excerpt, post.body, ownerId, now],
         );
       }
+
+      await seedStageC(tx, {
+        ownerId,
+        childId,
+        adultId,
+        householdId,
+        secondHouseholdId,
+        now,
+      });
     });
   }
+}
+
+interface StageCSeedInput {
+  ownerId: string;
+  childId: string;
+  adultId: string;
+  householdId: string;
+  secondHouseholdId: string;
+  now: string;
+}
+
+/**
+ * Demonstration content for Stage C. It is created once, only for a brand-new
+ * non-production database, and never in production (`fullDemo` guards the call).
+ * Every row is scoped to the demo household so space isolation stays testable.
+ */
+async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> {
+  const { ownerId, childId, adultId, householdId, secondHouseholdId, now } = input;
+
+  const familyChatId = newId('cht');
+  const directChatId = newId('cht');
+  const channelId = newId('cht');
+  await tx.query(
+    `INSERT INTO chats (id, space_id, kind, name, topic, description, visibility, created_by,
+       last_message_at, message_count, created_at, updated_at)
+     VALUES
+      ($1,$4,'group','Семейный чат','Бытовые вопросы','Общий чат домохозяйства','members',$5,$6,2,$6,$6),
+      ($2,$4,'direct','','','','members',$5,$6,1,$6,$6),
+      ($3,$4,'channel','Объявления','Только важное','Канал для объявлений','space',$5,$6,1,$6,$6)`,
+    [familyChatId, directChatId, channelId, householdId, ownerId, now],
+  );
+  for (const [chatId, userId, role] of [
+    [familyChatId, ownerId, 'owner'],
+    [familyChatId, childId, 'member'],
+    [directChatId, ownerId, 'owner'],
+    [directChatId, childId, 'member'],
+    [channelId, ownerId, 'owner'],
+  ] as const) {
+    await tx.query(
+      `INSERT INTO chat_members (chat_id, user_id, role, last_read_at) VALUES ($1,$2,$3,$4)`,
+      [chatId, userId, role, now],
+    );
+  }
+  const messages: Array<[string, string, string, string, string | null]> = [
+    [familyChatId, ownerId, 'Доброе утро! Сегодня ужин в 19:00.', '[]', null],
+    [familyChatId, childId, 'Хорошо, буду вовремя.', JSON.stringify([ownerId]), null],
+    [directChatId, ownerId, 'Не забудь про домашнее задание.', '[]', null],
+    [channelId, ownerId, 'В субботу едем к бабушке.', '[]', null],
+  ];
+  for (const [chatId, authorId, body, mentions, threadRoot] of messages) {
+    const id = newId('msg');
+    await tx.query(
+      `INSERT INTO chat_messages
+        (id, chat_id, space_id, thread_root_id, author_user_id, body, mentions, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)`,
+      [id, chatId, householdId, threadRoot, authorId, body, mentions, now],
+    );
+    await tx.query(
+      `INSERT INTO chat_message_versions (id, message_id, version, body, edited_by, created_at)
+       VALUES ($1,$2,1,$3,$4,$5)`,
+      [newId('mvr'), id, body, authorId, now],
+    );
+  }
+
+  const postId = newId('fpo');
+  await tx.query(
+    `INSERT INTO feed_posts
+      (id, space_id, kind, title, body, visibility, audience_space_ids, tags, media,
+       author_user_id, published_at, created_at, updated_at)
+     VALUES ($1,$2,'news','Первая запись семейной ленты','Здесь появятся новости, фотографии и
+       важные объявления домохозяйства.','household','[]'::jsonb,$3,'[]'::jsonb,$4,$5,$5,$5)`,
+    [postId, householdId, JSON.stringify(['дом']), ownerId, now],
+  );
+  await tx.query(
+    `INSERT INTO feed_comments (id, post_id, space_id, author_user_id, body, created_at)
+     VALUES ($1,$2,$3,$4,'Отличная идея!',$5)`,
+    [newId('fcm'), postId, householdId, childId, now],
+  );
+  await tx.query(
+    `INSERT INTO feed_reactions (post_id, user_id, emoji, created_at) VALUES ($1,$2,'❤️',$3)`,
+    [postId, childId, now],
+  );
+
+  const pollOptions = JSON.stringify([
+    { key: 'sea', label: 'Море' },
+    { key: 'mountains', label: 'Горы' },
+  ]);
+  const pollId = newId('pol');
+  await tx.query(
+    `INSERT INTO polls
+      (id, space_id, kind, question, description, options, multi_choice, anonymous, status,
+       quorum_percent, voting_rule, closes_at, created_by, created_at, updated_at)
+     VALUES ($1,$2,'simple','Куда поедем летом?','Обсуждаем семейный отпуск',$3,FALSE,FALSE,'open',
+       50,'majority',$4,$5,$6,$6)`,
+    [pollId, householdId, pollOptions, new Date(Date.now() + 7 * 86_400_000).toISOString(), ownerId, now],
+  );
+  await tx.query(
+    `INSERT INTO poll_votes (poll_id, user_id, option_keys, comment, created_at, updated_at)
+     VALUES ($1,$2,$3,'',$4,$4)`,
+    [pollId, ownerId, JSON.stringify(['sea']), now],
+  );
+
+  const proposalId = newId('prp');
+  await tx.query(
+    `INSERT INTO proposals
+      (id, space_id, title, body, status, author_user_id, voting_rule, quorum_percent,
+       closes_at, created_at, updated_at)
+     VALUES ($1,$2,'Купить велосипед','Обсуждаем покупку второго велосипеда для поездок.',
+       'discussion',$3,'majority',50,$4,$5,$5)`,
+    [proposalId, householdId, ownerId, new Date(Date.now() + 3 * 86_400_000).toISOString(), now],
+  );
+
+  const wishlistId = newId('wsh');
+  await tx.query(
+    `INSERT INTO wishlists
+      (id, space_id, title, owner_user_id, visibility, occasion, due_at, created_by, created_at)
+     VALUES ($1,$2,'День рождения',$3,'household','День рождения',$4,$5,$6)`,
+    [wishlistId, householdId, ownerId, new Date(Date.now() + 20 * 86_400_000).toISOString(), ownerId, now],
+  );
+  await tx.query(
+    `INSERT INTO wishlist_items (id, wishlist_id, title, url, price_cents, currency, notes, priority, created_at)
+     VALUES ($1,$2,'Наушники','',9900,'EUR','Беспроводные',1,$3),
+            ($4,$2,'Книга о путешествиях','',2500,'EUR','',2,$3)`,
+    [newId('wit'), wishlistId, now, newId('wit')],
+  );
+
+  const noteId = newId('doc');
+  await tx.query(
+    `INSERT INTO documents
+      (id, space_id, kind, title, format, content, version, created_by, updated_by, created_at, updated_at)
+     VALUES ($1,$2,'note','Семейные заметки','markdown',$3,1,$4,$4,$5,$5)`,
+    [
+      noteId,
+      householdId,
+      '# Семейные заметки\n\n- Общие планы\n- Список дел\n',
+      ownerId,
+      now,
+    ],
+  );
+  await tx.query(
+    `INSERT INTO document_versions (id, document_id, version, title, content, created_by, note, created_at)
+     VALUES ($1,$2,1,'Семейные заметки',$3,$4,'create',$5)`,
+    [newId('dvr'), noteId, '# Семейные заметки\n\n- Общие планы\n- Список дел\n', ownerId, now],
+  );
+  for (const userId of [ownerId, childId]) {
+    await tx.query(
+      `INSERT INTO document_collaborators (document_id, user_id, permission)
+       VALUES ($1,$2,$3)`,
+      [noteId, userId, userId === ownerId ? 'edit' : 'comment'],
+    );
+  }
+
+  // A second household keeps its own empty workspace, so cross-space isolation
+  // is visible in the demo without exposing anything.
+  const otherChatId = newId('cht');
+  await tx.query(
+    `INSERT INTO chats (id, space_id, kind, name, topic, created_by, created_at, updated_at)
+     VALUES ($1,$2,'group','Чат Катании','',$3,$4,$4)`,
+    [otherChatId, secondHouseholdId, adultId, now],
+  );
+  await tx.query(
+    `INSERT INTO chat_members (chat_id, user_id, role) VALUES ($1,$2,'owner')`,
+    [otherChatId, adultId],
+  );
 }

@@ -2,7 +2,7 @@
 
 ## Форма
 
-Stage B остаётся **модульным монолитом** с отдельными frontend- и API-процессами. SSE realtime работает внутри API-процесса через RxJS Subject; медиа-workers, office editor, WebSocket/Yjs и WebRTC не запускаются до соответствующих этапов. Это соответствует ограничению VPS 1–2 CPU / 2–4 GB RAM.
+Stage C остаётся **модульным монолитом** с отдельными frontend- и API-процессами. Realtime — SSE (Stage B) и WebSocket-шлюз `/ws` с Yjs-комнатами в памяти API-процесса (Stage C). WebRTC-медиа идёт P2P/TURN и не обслуживается API; медиа-workers и полноценный office editor не запускаются. Это соответствует ограничению VPS 1–2 CPU / 2–4 GB RAM.
 
 ```text
 Browser
@@ -91,3 +91,12 @@ API не предоставляет endpoints изменения или удал
 Браузер использует `/api/*` и `/caldav/*` относительные пути. Next.js проксирует оба на NestJS. `DatabaseService` применяет все SQL-миграции из `src/db/sql` по имени файла; production-сборка копирует каталог целиком в `dist/db/sql`.
 
 SSE рассчитан на один API-процесс. Для нескольких реплик потребуется общий bus (этап C/H); текущая реализация не выдаёт себя за распределённый WebSocket-шлюз.
+
+## Stage C
+
+- `CollaborationGateway` (`apps/api/src/collaboration/`) поднимает `ws` `WebSocketServer` на том же HTTP-сервере NestJS, путь `/ws`. Аутентификация — по cookie сессии до первого кадра; CSRF проверяется в `hello`. `Origin` сверяется с `APP_ORIGIN`.
+- Yjs-комнаты (`Y.Doc`) живут в памяти процесса, гидрируются из `documents.content` и сохраняются с дебаунсом 1200 мс. Кадр ограничен 512 КБ, Yjs-обновление передаётся base64 внутри JSON.
+- REST-модули Stage C (`messenger`, `feed`, `decisions`, `documents`, `calls`) следуют схеме Stage A/B: guard, CSRF, `AccessService.assert`, аудит, realtime-событие темы.
+- Браузер использует относительные URL. HTTP проксирует Next.js, WebSocket — `scripts/ws-proxy.mjs` (dev) или reverse proxy (prod). Медиа WebRTC не проходит ни через один из них.
+- Клиент (`apps/web/src/lib/collaboration.ts`) держит одно соединение на страницу, очередь отправки, backoff 500 мс → 15 с, ping каждые 25 с и полную пересылку состояния при реконнекте.
+- Ограничение: без общего pub/sub несколько API-реплик не разделят Yjs-комнаты и presence.

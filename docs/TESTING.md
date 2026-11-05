@@ -78,11 +78,11 @@ From section 33 of the TЗ, the following remain for later stages/version 1.0:
 - realtime/Yjs conflict tests;
 - 6–10 user load and VPS resource tests.
 
-Эти границы намеренно задокументированы; Stage B также не заявлен как версия 1.0.
+Эти границы намеренно задокументированы; Stage B и Stage C также не заявлены как версия 1.0.
 
 ## Definition of Done for future modules
 
-Every module from stages B–H must add:
+Every module from stages C–H must add:
 
 1. API tests for all accepted scenarios;
 2. role and cross-space isolation tests;
@@ -102,3 +102,21 @@ Every module from stages B–H must add:
 CalDAV проверяется через `PROPFIND`, `REPORT`, `PUT` с `If-None-Match`, `GET`, `DELETE` с `If-Match`, а также отклонение токена для чужого календаря. Публичный API проверяется до и после публикации/снятия с публикации.
 
 Локально собираются два FTP payload без секретов и локальных данных; реальная загрузка требует FTPS-доступа и GitHub secrets. CI- и FTP-workflow добавлены; shell-скрипты проверяются `bash -n`, Node-скрипты — `node --check`: `ci.yml` повторяет проверки на каждый push/PR, `ftp.yml` собирает отдельные backend/frontend payloads и загружает выбранный `target` по FTPS. Живое превью на встроенном PGlite дополнительно проверяло SSE-событие `tasks` через `/api/realtime/stream`, `PROPFIND 207` через `/caldav/:calendarId/`, миграцию существующей Stage A базы (`001_stage_a_foundation` → `001_init` + `002`–`004`) и сохранение пользователей/публикаций. Ещё не выполнялись: Playwright/браузерные сценарии, production PostgreSQL/Docker runtime, реальные SMTP/Telegram/Web Push, нагрузочное тестирование SSE и `npm audit`.
+
+## Stage C
+
+`npm run test -w @ufos/api` запускает 36 серверных тестов: 11 Stage A, 11 Stage B, 9 Stage C и 5 WebSocket/collaboration. `packages/contracts` добавляет 8 unit-тестов прав.
+
+`stage-c.e2e-spec.ts` проверяет messenger (создание чата, отправка сообщения, реакции, закрепление, ветки, прочтение, поиск, модерация), ленту (посты, комментарии, реакции, источники, автоматические события), решения (опросы с кворумом и ничьей, предложения, вишлисты, история, правила голосования), документы (версии, восстановление, комментарии, коллабораторы, права), WebRTC-комнаты (создание, участие, сигналы, диагностика ICE) и изоляцию пространств.
+
+`collaboration.e2e-spec.ts` поднимает реальный `WebSocket` к `/ws`:
+
+- отказ без сессии — код `4401`;
+- отказ без CSRF — код `4403`;
+- `hello` → `ready`, подписка, `ping` → `pong`, presence участников;
+- Yjs-синхронизация между двумя клиентами и сохранение документа в базу;
+- сигналинг WebRTC (`call:signal`) и сохранение сигналов в `call_signals` (`GET /api/calls/rooms/:id/signals`).
+
+В живом превью дополнительно проверялись: `/api/health` через WS-прокси, страницы `/messages`, `/feed`, `/decisions`, `/documents`, `/calls` (200 без runtime-ошибок), `hello` через прокси с настоящей сессией, наличие демо-данных Stage C в ленте/решениях/документах. `scripts/smoke.sh` проверяет, что gateway на `/ws` отвечает на upgrade (101/401/403), а не 404.
+
+Ещё не выполнялись: реальное двустороннее аудио/видео между браузерами, TURN в мобильных сетях, нагрузочные тесты signaling/Yjs, Playwright-сценарии совместного редактирования и `npm audit`.

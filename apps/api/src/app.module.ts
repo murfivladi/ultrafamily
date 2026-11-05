@@ -4,10 +4,16 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { CallsModule } from './calls/calls.module';
+import { CollaborationModule } from './collaboration/collaboration.module';
 import { CommonModule } from './common/common.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { DecisionsModule } from './decisions/decisions.module';
+import { DocumentsModule } from './documents/documents.module';
+import { FeedModule } from './feed/feed.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
+import { MessengerModule } from './messenger/messenger.module';
 import { ModulesModule } from './modules/modules.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PublicModule } from './public/public.module';
@@ -45,6 +51,14 @@ import { UsersModule } from './users/users.module';
     TasksModule,
     ShoppingModule,
     PublishingModule,
+
+    // Stage C communication and collaboration.
+    MessengerModule,
+    FeedModule,
+    DecisionsModule,
+    DocumentsModule,
+    CallsModule,
+    CollaborationModule,
   ],
 })
 export class AppModule {}

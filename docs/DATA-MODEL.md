@@ -97,3 +97,15 @@ id, slug, language, title, excerpt, body, published_at, space_name
 - `user_preferences.feed_sources`; `public_posts.status`, `visibility`, `audience_space_ids`, `guest_shared`, `updated_at`, `published_by`, `unpublished_at`.
 
 Версионирование: `calendar_events.version`/`etag`, `tasks.version`, `shopping_lists.version`. `schema_migrations` хранит каждую применённую SQL-миграцию по имени файла. Пароли, CalDAV/webhook-секреты и сессионные токены в открытом виде не хранятся.
+
+## Stage C: общение и совместная работа
+
+Аддитивная миграция `005_stage_c.sql`, 29 таблиц, повторный запуск идемпотентен.
+
+- Messenger: `chats`, `chat_members`, `chat_messages`, `chat_message_versions`, `chat_reactions`, `chat_attachments`, `chat_receipts`, `chat_moderation_log`.
+- Лента и решения: `feed_posts`, `feed_comments`, `feed_reactions`, `space_governance`, `polls`, `poll_votes`, `proposals`, `proposal_votes`, `decision_history`, `wishlists`, `wishlist_items`.
+- Документы: `documents`, `document_versions`, `document_collaborators`, `document_comments`, `document_presence`.
+- WebRTC: `call_rooms`, `call_participants`, `call_signals`, `call_events`.
+- Realtime: `collaboration_presence`.
+
+Сообщения, голоса и реакции несут клиентские ключи идемпотентности; удаление сообщения оставляет версии для политики хранения; `decision_history` хранит итог, кворум и метаданные ничьей; `documents.content` — источник для гидрирования Yjs-комнаты, `document_versions` — снимки для восстановления.

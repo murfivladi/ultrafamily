@@ -1,6 +1,6 @@
 {
   "name": "ultra-family-os",
-  "version": "0.1.0-stage-b",
+  "version": "0.1.0-stage-c",
   "private": true,
   "description": "Ultra Family OS — private, modular family platform",
   "license": "UNLICENSED",
@@ -13,11 +13,11 @@
   },
   "scripts": {
     "contracts:build": "npm run build -w @ufos/contracts",
-    "dev": "npm run contracts:build && concurrently -k -n API,WEB -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "npm run contracts:build && concurrently -k -n API,WEB,WS -c blue,magenta,cyan \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:ws\"",
     "dev:api": "npm run dev -w @ufos/api",
     "dev:web": "npm run dev -w @ufos/web",
     "build": "npm run contracts:build && npm run build -w @ufos/api && npm run build -w @ufos/web",
-    "start": "concurrently -k -n API,WEB -c blue,magenta \"npm:start:api\" \"npm:start:web\"",
+    "start": "concurrently -k -n API,WEB,WS -c blue,magenta,cyan \"npm:start:api\" \"npm:start:web\" \"npm:start:ws\"",
     "start:api": "npm run start:prod -w @ufos/api",
     "start:web": "npm run start -w @ufos/web",
     "test": "npm run test -w @ufos/contracts && npm run test -w @ufos/api && npm run typecheck -w @ufos/web",
@@ -30,7 +30,9 @@
     "release:ftp": "bash scripts/package-ftp.sh",
     "deploy:ftp": "bash scripts/ftp-upload.sh",
     "smoke": "bash scripts/smoke.sh",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "dev:ws": "node scripts/ws-proxy.mjs",
+    "start:ws": "node scripts/ws-proxy.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",

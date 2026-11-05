@@ -1,6 +1,6 @@
 {
   "name": "@ufos/web",
-  "version": "0.1.0",
+  "version": "0.1.0-stage-c",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
@@ -14,7 +14,8 @@
     "lucide-react": "^0.545.0",
     "next": "15.5.29",
     "react": "19.1.10",
-    "react-dom": "19.1.10"
+    "react-dom": "19.1.10",
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
