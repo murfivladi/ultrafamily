@@ -224,6 +224,19 @@ Workflow теперь:
 
 Старые неполные файлы или `./artifact/` можно удалить вручную: `mirror -R` без `--delete` не чистит лишнее.
 
+## Если 26 минут висит на `.next/cache/.../index.pack`
+
+`apps/web/.next/cache/webpack/server-production/index.pack` — это кэш webpack для ускорения **сборки**, а не файл, нужный `next start`. В production его можно удалять [2](https://github.com/vercel/next.js/discussions/31395). `lftp mirror` поддерживает исключение каталогов по glob [1](https://www.cyberciti.biz/faq/lftp-command-mirror-x-exclude-files-sub-directory-syntax/).
+
+Исправлено в трёх местах:
+
+- `scripts/package-ftp.sh` удаляет `apps/web/.next/cache` из frontend payload;
+- GitHub Artifact дополнительно исключает `.next/cache/` и `*.pack`;
+- `mirror -R` тоже исключает `cache/`, `.next/cache/` и `*.pack`, даже если старый кэш остался локально;
+- package job и upload job падают, если в payload всё-таки появился `.next/cache` или `*.pack`.
+
+Удалите уже загруженный `./apps/web/.next/cache/` на FTP вручную: `mirror -R` без `--delete` не чистит старые файлы. Удалять всю `./apps/web/.next/` не нужно — `BUILD_ID`, `server/`, `static/` и `required-server-files.json` обязательны для запуска.
+
 ## Ограничения
 
 - FTPS-загрузка не даёт атомарного переключения `current`, health check и автоматического rollback; это делает админка сервера.

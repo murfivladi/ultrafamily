@@ -38,6 +38,9 @@ done
 cp -R apps/api/dist "$BACKEND/apps/api/"
 cp apps/web/next.config.mjs apps/web/postcss.config.mjs "$FRONTEND/apps/web/"
 cp -R apps/web/.next apps/web/public "$FRONTEND/apps/web/"
+# .next/cache is a webpack BUILD cache, not a next start runtime dependency.
+# It can contain multi-hundred-MB .pack files; keep it out of FTP artifacts.
+rm -rf "$FRONTEND/apps/web/.next/cache"
 
 COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 for pair in "backend:$BACKEND" "frontend:$FRONTEND"; do
@@ -78,6 +81,8 @@ The workflow uploads the CONTENTS of this directory into the frontend FTP
 account root (./). No artifact/ or payload/ folder is created.
 
 Frontend is already compiled in GitHub Actions: apps/web/.next is included.
+The .next/cache webpack build cache and *.pack files are deliberately
+excluded: they are not needed by `next start` and can be very large.
 
 1. At the release root run: npm ci --omit=dev
 2. Start the web server: npm run start -w @ufos/web

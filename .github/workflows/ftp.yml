@@ -107,7 +107,9 @@ jobs:
           test -f releases/ftp/frontend/apps/web/.next/trace
           test -d releases/ftp/frontend/apps/web/.next/static
           test -d releases/ftp/frontend/apps/web/public
-          echo 'Prebuilt frontend .next root:'
+          test ! -e releases/ftp/frontend/apps/web/.next/cache
+          test -z "$(find releases/ftp/frontend -type f -name '*.pack' -print -quit)"
+          echo 'Prebuilt frontend .next root (build cache excluded):'
           find releases/ftp/frontend/apps/web/.next -maxdepth 1 -printf '%f\n' | sort
 
       - name: Upload backend artifact
@@ -138,6 +140,9 @@ jobs:
             !releases/ftp/frontend/**/.env.*.local
             !releases/ftp/frontend/**/node_modules/
             !releases/ftp/frontend/**/.git/
+            !releases/ftp/frontend/**/.next/cache/
+            !releases/ftp/frontend/**/.next/cache/**
+            !releases/ftp/frontend/**/*.pack
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
@@ -205,6 +210,8 @@ jobs:
             test -f "$LOCAL_DIR/apps/web/.next/trace"
             test -d "$LOCAL_DIR/apps/web/.next/static"
             test -d "$LOCAL_DIR/apps/web/public"
+            test ! -e "$LOCAL_DIR/apps/web/.next/cache"
+            test -z "$(find "$LOCAL_DIR/apps/web" -type f -name '*.pack' -print -quit)"
           else
             test -f "$LOCAL_DIR/apps/api/dist/main.js"
           fi
@@ -277,6 +284,8 @@ jobs:
             test -f "$LOCAL_DIR/apps/web/.next/trace"
             test -d "$LOCAL_DIR/apps/web/.next/static"
             test -d "$LOCAL_DIR/apps/web/public"
+            test ! -e "$LOCAL_DIR/apps/web/.next/cache"
+            test -z "$(find "$LOCAL_DIR/apps/web" -type f -name '*.pack' -print -quit)"
           else
             test -f "$LOCAL_DIR/apps/api/dist/main.js"
           fi

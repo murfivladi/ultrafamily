@@ -142,7 +142,7 @@ echo "Uploading contents of $LOCAL_DIR_ABS into FTP root ./ ..."
   printf '%s\n' \
     'cd ./' \
     "lcd \"$LOCAL_DIR_ABS\"" \
-    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob node_modules/ --exclude-glob .git/' \
+    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob node_modules/ --exclude-glob .git/ --exclude-glob cache/ --exclude-glob .next/cache/ --exclude-glob *.pack' \
     "put \"$MERGED\" -o .env" \
     'bye'
 } | run_lftp
