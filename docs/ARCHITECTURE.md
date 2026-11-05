@@ -6,10 +6,10 @@ Stage B остаётся **модульным монолитом** с отдел
 
 ```text
 Browser
-  └── Next.js (0.0.0.0:3000)
+  └── Next.js (0.0.0.0:26287)
         ├── public pages
         ├── authenticated SPA-like pages
-        └── /api/* rewrite ──> NestJS (0.0.0.0:3001)
+        └── /api/* rewrite ──> https://api.family.vladislavb.qzz.io
                                   ├── global AuthGuard + CSRF
                                   ├── AccessService
                                   ├── module services
