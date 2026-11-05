@@ -14,7 +14,9 @@ const version =
   clean(process.env.RELEASE_VERSION || '0.1.0-stage-b').replace(/[^A-Za-z0-9._-]+/g, '-') ||
   '0.1.0-stage-b';
 const appOrigin = clean(process.env.APP_ORIGIN);
-const apiProxyOrigin = clean(process.env.API_PROXY_ORIGIN);
+const apiProxyOrigin = clean(
+  process.env.API_PROXY_ORIGIN || 'https://api.family.vladislavb.qzz.io',
+);
 const bootstrapOwnerEmail = clean(process.env.BOOTSTRAP_OWNER_EMAIL || 'owner@ultra.family');
 
 const lines = ['NODE_ENV=production', `APP_VERSION=${version}`];
@@ -33,8 +35,7 @@ if (target === 'backend') {
     'SEED_DEMO_DATA=false',
   );
 } else {
-  lines.push('WEB_PORT=3000', 'NEXT_PUBLIC_DEMO_PASSWORD=');
-  if (apiProxyOrigin) lines.push(`API_PROXY_ORIGIN=${apiProxyOrigin}`);
+  lines.push('WEB_PORT=26287', 'NEXT_PUBLIC_DEMO_PASSWORD=', `API_PROXY_ORIGIN=${apiProxyOrigin}`);
 }
 
 process.stdout.write(`${lines.join('\n')}\n`);

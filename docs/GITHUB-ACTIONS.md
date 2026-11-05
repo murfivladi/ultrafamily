@@ -3,8 +3,8 @@
 Автоматизация делает **только загрузку файлов по FTPS**. Она не выполняет SSH-команды, не перезапускает сервисы, не применяет миграции вручную и не использует Docker Compose. Backend и frontend загружаются отдельно, в корень `./` своих FTP-аккаунтов.
 
 - `.github/workflows/ci.yml` — проверки на каждый push/PR.
-- `.github/workflows/ftp.yml` — сборка backend, подготовка исходников frontend и раздельная FTPS-загрузка.
-- `scripts/package-ftp.sh` — собирает backend `dist`, контракты и исходники frontend для сборки на хостинге.
+- `.github/workflows/ftp.yml` — полная сборка backend и frontend в Actions и раздельная FTPS-загрузка.
+- `scripts/package-ftp.sh` — собирает contracts, API `dist` и frontend `.next`, затем готовит два payload'а.
 - `scripts/ftp-upload.sh` — FTPS-загрузка одного payload'а и слияние `.env`.
 - `scripts/ftp-env.mjs` — генерирует автоматические значения.
 - `scripts/merge-env.mjs` — дописывает только недостающие ключи, сохраняя ваши значения.
@@ -13,12 +13,14 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 
 ## Где собирается frontend
 
-По вашему выбору сборка frontend перенесена на хостинг:
+По вашему выбору frontend **снова собирается в GitHub Actions**:
 
-- **GitHub Actions `ftp.yml` больше не запускает `next build`**. Он собирает только contracts и Nest API (`npm run build:ftp-backend`), затем упаковывает backend `dist` и frontend **исходники**.
-- `.github/workflows/ci.yml` оставлен без изменений: на push/PR он по-прежнему выполняет полную проверочную сборку `npm run build`. Это CI-проверка, а не деплойный artifact.
-- Frontend artifact содержит `apps/web/src`, `public`, конфиги, `package-lock.json`, contracts и `.env.example`, но **не содержит `apps/web/.next`**.
-- `./apps/web/.next/` создаётся командой `npm run build -w @ufos/web` уже на хостинге, в корне frontend FTP-аккаунта. Workflow не запускает удалённые команды.
+- `ftp.yml` вызывает `npm run build`: contracts, Nest API и Next.js `.next` создаются в runner.
+- `ci.yml` не менялся и по-прежнему делает полную проверочную сборку на push/PR.
+- На хостинг загружается уже готовый `.next`; `npm run build -w @ufos/web` там запускать не нужно.
+- Frontend слушает порт **26287** (`WEB_PORT=26287`).
+- `/api` и `/caldav` переписываются на **https://api.family.vladislavb.qzz.io** (`API_PROXY_ORIGIN`).
+- `APP_ORIGIN` уже задан вами в `./.env`; workflow добавляет только отсутствующие ключи и не перезаписывает его.
 
 ## Схема доступа
 
@@ -37,7 +39,7 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 | `FTP_VERIFY_CERT`       | variable            | `true` по умолчанию; `false` только для проверенного self-signed сертификата |
 | `FTP_TLS_MODE`          | variable            | `explicit` по умолчанию; `implicit` для TLS сразу на нестандартном порту     |
 | `APP_ORIGIN`            | variable            | необязательный внешний origin                                                |
-| `API_PROXY_ORIGIN`      | variable            | необязательный внутренний API origin для frontend                            |
+| `API_PROXY_ORIGIN`      | variable            | публичный API origin для frontend, по умолчанию задан в workflow             |
 | `BOOTSTRAP_OWNER_EMAIL` | variable            | email первого владельца, по умолчанию `owner@ultra.family`                   |
 
 По умолчанию используется явный FTPS (`ftp://` + `AUTH TLS`): `ftp:ssl-force`, `ftp:ssl-protect-data`, passive mode. Если хостинг требует неявный FTPS, когда TLS начинается сразу на порту `2121`, установите `FTP_TLS_MODE=implicit` — workflow переключится на схему `ftps://`. Обычный FTP и SSH не применяются.
@@ -56,11 +58,10 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 ./RELEASE.json
 ./FTP-NOTES.txt
 ./ENV-SETUP.txt
-./HOSTING-BUILD.txt
 ./.nvmrc
 ./.env.example
 ./.env
-./apps/web/src/...
+./apps/web/.next/...
 ./apps/web/public/...
 ./packages/contracts/...
 ```
@@ -83,7 +84,7 @@ Push тега `v*` автоматически загружает **оба** payl
 3. Читает существующий `.env` из корня FTP-аккаунта.
 4. Генерирует автоматические значения.
 5. Дописывает **только отсутствующие ключи**; существующие строки, комментарии и вручную введённые значения сохраняются.
-6. Загружает backend `dist` либо frontend исходники через `mirror -R` без `--delete`, затем выгружает объединённый `.env`.
+6. Загружает предсобранный backend `dist` или frontend `.next` через `mirror -R` без `--delete`, затем выгружает объединённый `.env`.
 
 ## Что попадает в `.env` автоматически
 
@@ -91,7 +92,7 @@ Push тега `v*` автоматически загружает **оба** payl
 
 Backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`.
 
-Frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PROXY_ORIGIN`.
+Frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
 
 `SESSION_SECRET` и `BOOTSTRAP_OWNER_PASSWORD` генерируются случайно. Сгенерированный пароль первого владельца можно прочитать в `.env` на FTP; workflow не выводит его в логи. Повторный деплой не перезаписывает уже созданные значения.
 
@@ -109,7 +110,7 @@ Frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PR
 
 - общие: `NODE_ENV=production`, `APP_VERSION`, `APP_ORIGIN` при наличии одноимённой GitHub Variable;
 - backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT=3001`, `DB_DRIVER=postgres`, `DATABASE_SSL=false`, `DB_POOL_SIZE=8`, `PGLITE_DATA_DIR=.data/pglite`, `SEED_DEMO_DATA=false`;
-- frontend: `WEB_PORT=3000`, `NEXT_PUBLIC_DEMO_PASSWORD=`, `API_PROXY_ORIGIN` при наличии одноимённой GitHub Variable.
+- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD=`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
 
 `BOOTSTRAP_OWNER_PASSWORD` генерируется один раз. После первого деплоя откройте backend `./.env`, прочитайте этот пароль и используйте его вместе с `BOOTSTRAP_OWNER_EMAIL` для первого входа. Не удаляйте и не дублируйте эту строку; если нужен другой пароль до первого входа — отредактируйте существующую строку.
 
@@ -139,53 +140,40 @@ APP_ORIGIN=https://family.example
 Обычно нужен адрес, по которому Next.js процесс может достучаться до Nest API:
 
 ```dotenv
-API_PROXY_ORIGIN=http://127.0.0.1:3001
+API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io
 ```
 
 Если API слушает другой порт/хост, укажите его. При необходимости:
 
 ```dotenv
-# WEB_PORT=3100
+# WEB_PORT=26287
 # APP_ORIGIN=https://family.example
 ```
 
-Можно не вводить `APP_ORIGIN` и `API_PROXY_ORIGIN` вручную, а создать одноимённые **GitHub Variables** — тогда workflow добавит их в оба `.env` автоматически, но всё равно не перезапишет уже существующие строки.
+`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN` по умолчанию равен `https://api.family.vladislavb.qzz.io`; одноимённая **GitHub Variable** может задать другое значение, но только для отсутствующего ключа в `.env`.
 
 ### 4. После правки
 
 1. Сохраните `./.env` в корне соответствующего FTP-аккаунта.
-2. Перезапустите backend; для frontend сначала пересоберите его на хостинге, потому что `APP_ORIGIN`/`API_PROXY_ORIGIN` читаются при `next build`.
+2. Перезапустите процессы в админке сервера: `npm run start:prod -w @ufos/api` и `npm run start -w @ufos/web`. Сборка на хостинге не нужна.
 3. Первый вход сделайте с email/паролем из backend `.env`.
 4. Остальные первичные настройки — название семьи, пользователи, модули и т.п. — введите в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
 Если админка сервера задаёт переменные окружения напрямую, они имеют приоритет над `.env`: загрузчик заполняет только те `process.env`, которые ещё не определены.
 
-## Сборка и первый запуск на хостинге
+## Первый запуск на сервере
 
-### Backend — уже собран в Actions
-
-В корне backend FTP-аккаунта:
+Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
 
 ```bash
 npm ci --omit=dev
+# backend
 npm run start:prod -w @ufos/api
-```
-
-### Frontend — собираете вы на хостинге
-
-В корне frontend FTP-аккаунта, после настройки `./.env`:
-
-```bash
-nvm use                       # Node.js 22 из .nvmrc
-npm ci                        # нужны dev-зависимости для next build
-npm run contracts:build
-npm run build -w @ufos/web
+# frontend, порт 26287
 npm run start -w @ufos/web
 ```
 
-`npm ci --omit=dev` здесь **нельзя** использовать до сборки: TypeScript, PostCSS и Tailwind лежат в devDependencies. После успешной сборки можно при желании выполнить `npm prune --omit=dev`; `next` сам является production-зависимостью.
-
-Если меняете `.env` после сборки — особенно `APP_ORIGIN`, `API_PROXY_ORIGIN` или `NEXT_PUBLIC_*` — повторите `npm run build -w @ufos/web` и перезапустите web-процесс. Точная шпаргалка лежит в корне payload: `HOSTING-BUILD.txt`.
+Frontend уже собран в Actions, поэтому `npm run build -w @ufos/web` на хостинге не запускайте. `API_PROXY_ORIGIN` зашит в `.next` во время сборки; если этот адрес изменится, перезапустите `ftp.yml`, чтобы пересобрать frontend.
 
 Команды запуска, порты, reverse proxy и HTTPS настраиваются в админке сервера. Миграции применяет сам API при старте. Workflow только загружает файлы.
 
@@ -222,11 +210,19 @@ Workflow теперь:
 
 Если какому-то файлу нужен особый executable bit, выставьте его в панели хостинга/админке сервера, а не через FTP-деплой. Повторно запускать `chmod` в workflow не нужно.
 
-## Почему в artifact нет `.next`
+## Если frontend загрузил только `public/` и `.next/trace`
 
-Теперь это ожидаемо: frontend собирается на хостинге, поэтому `.next/` не загружается из Actions. Если после `npm run build -w @ufos/web` на хостинге нет `./apps/web/.next/`, проверьте Node.js 22, наличие dev-зависимостей после `npm ci`, root `./.env` и логи `next build`.
+Причина — скрытые файлы/папки. Папка Next.js `.next/` начинается с точки, а `actions/upload-artifact@v4` по умолчанию исключает hidden files и hidden directories [2](https://github.com/actions/upload-artifact/blob/v4/README.md). Кроме того, некоторые FTP-серверы не показывают dot-файлы в листинге; для этого `lftp` рекомендует `set ftp:list-options -a` [5](https://linux.die.net/man/1/lftp).
 
-`include-hidden-files: true` и `set ftp:list-options -a` всё равно нужны для `.env.example`, `.nvmrc` и других dot-файлов: `actions/upload-artifact@v4` по умолчанию исключает hidden files [2](https://github.com/actions/upload-artifact/blob/v4/README.md), а часть FTP-серверов скрывает их в листинге [5](https://linux.die.net/man/1/lftp). Старые `.next` или `./artifact/` на FTP удалите вручную: `mirror -R` без `--delete` не чистит лишнее.
+Исправлено:
+
+- у обоих GitHub Artifact включён `include-hidden-files: true`;
+- в `path` явно исключены только реальные секреты `.env`, `.env.local`, `.env.*.local`, `node_modules/`, `.git/`; `.env.example`, `.nvmrc`, `.next/**`, `.next/static/**` теперь попадают в artifact;
+- `lftp` получает `set ftp:list-options -a`;
+- вместо широких regex `--exclude .env` используются точные `--exclude-glob .env` и т.п., чтобы не вырезать `.env.example`;
+- package job и upload job проверяют `.next/trace`, `.next/static/`, `public/`, `.env.example` и собранный backend `dist/main.js`.
+
+Старые неполные файлы или `./artifact/` можно удалить вручную: `mirror -R` без `--delete` не чистит лишнее.
 
 ## Ограничения
 

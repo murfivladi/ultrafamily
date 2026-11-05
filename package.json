@@ -17,7 +17,6 @@
     "dev:api": "npm run dev -w @ufos/api",
     "dev:web": "npm run dev -w @ufos/web",
     "build": "npm run contracts:build && npm run build -w @ufos/api && npm run build -w @ufos/web",
-    "build:ftp-backend": "npm run contracts:build && npm run build -w @ufos/api",
     "start": "concurrently -k -n API,WEB -c blue,magenta \"npm:start:api\" \"npm:start:web\"",
     "start:api": "npm run start:prod -w @ufos/api",
     "start:web": "npm run start -w @ufos/web",

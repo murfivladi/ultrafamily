@@ -25,12 +25,12 @@
 - удалённый каталог всегда `./`;
 - FTPS: по умолчанию явный `AUTH TLS`; `FTP_TLS_MODE=implicit` для TLS сразу на порту; TLS для control и data channel;
 - загрузка без `SITE CHMOD`/`MFF`: права файлов задаёт сервер, workflow не меняет permissions;
-- GitHub Artifact включает hidden dot-файлы `.env.example` и `.nvmrc`; `.next/` создаётся на хостинге; `lftp` использует `ftp:list-options -a`;
+- GitHub Artifact включает hidden files: `.next/`, `.env.example`, `.nvmrc`; `lftp` использует `ftp:list-options -a`;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 Workflow загружает **содержимое** двух GitHub Artifact напрямую в корень `./` каждого FTP-аккаунта; локальная папка `payload/` runner'а на FTP не создаётся. Старую `./artifact/` от предыдущих запусков удалите вручную: `mirror -R` не использует `--delete`.
 
-Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит исходники `apps/web/src`, `public`, конфиги Next.js, contracts, `HOSTING-BUILD.txt` и manifests, но не содержит `.next`: frontend собирается на хостинге. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
+Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит готовый `.next`, `public`, конфиги Next.js, contracts и manifests: frontend собирается в Actions. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
 
 ## `.env`
 
@@ -40,7 +40,7 @@ Workflow загружает два GitHub Artifact по отдельности. 
 
 - общие: `NODE_ENV`, `APP_VERSION`, при наличии `APP_ORIGIN`;
 - backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`;
-- frontend: `WEB_PORT`, `NEXT_PUBLIC_DEMO_PASSWORD`, при наличии `API_PROXY_ORIGIN`.
+- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
 
 Существующие строки, комментарии и вручную введённые значения не перезаписываются. Сгенерированный `BOOTSTRAP_OWNER_PASSWORD` можно прочитать в `.env` на FTP; он не выводится в логи GitHub.
 
@@ -49,41 +49,30 @@ Workflow загружает два GitHub Artifact по отдельности. 
 ```dotenv
 DATABASE_URL=postgres://…
 APP_ORIGIN=https://family.example
-API_PROXY_ORIGIN=http://127.0.0.1:3001
+API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io
 ```
 
-После изменения `.env` frontend нужно пересобрать на хостинге командой `npm run build -w @ufos/web`. Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
+`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN` зашит в `.next` при сборке в Actions; при смене API-адреса перезапустите `ftp.yml`. Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
 ## Первый запуск
 
-Через админку сервера/хостинга, в корне каждого FTP-аккаунта.
-
-Backend уже собран в Actions:
+Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
 
 ```bash
 npm ci --omit=dev
 npm run start:prod -w @ufos/api
-```
-
-Frontend собирается на хостинге после настройки `./.env`:
-
-```bash
-nvm use                       # Node.js 22 из .nvmrc
-npm ci                        # dev-зависимости нужны для next build
-npm run contracts:build
-npm run build -w @ufos/web
 npm run start -w @ufos/web
 ```
 
-`npm ci --omit=dev` до сборки frontend использовать нельзя. После успешной сборки можно при желании выполнить `npm prune --omit=dev`. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на backend. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
+Frontend слушает порт `26287`; backend остаётся на `API_PORT=3001`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на `https://api.family.vladislavb.qzz.io`. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
 ## Обновление
 
 1. Убедитесь, что CI зелёный.
 2. Сделайте backup PostgreSQL по [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
 3. В Actions запустите `FTP deploy` с `target: backend`, `frontend` или `both`.
-4. Workflow соберёт backend, проверит тесты/typecheck, упакует исходники frontend и загрузит только выбранные файлы.
-5. Для frontend выполните `npm run build -w @ufos/web` на хостинге, затем перезапустите сервисы в админке сервера. Workflow сам этого не делает.
+4. Workflow соберёт оба payload'а, проверит тесты/typecheck/build и загрузит только выбранные файлы.
+5. Перезапустите сервисы в админке сервера. Workflow сам этого не делает.
 
 ## Откат
 
