@@ -103,18 +103,35 @@ export class DecisionsController {
   }
 
   @Patch('proposals/:id')
-  updateProposal(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.decisions.updateProposal(user, spaceFrom(body), id, proposalUpdateSchema.parse(body));
+  updateProposal(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.decisions.updateProposal(
+      user,
+      spaceFrom(body),
+      id,
+      proposalUpdateSchema.parse(body),
+    );
   }
 
   @Post('proposals/:id/status')
-  transition(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
+  transition(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     const input = proposalTransitionSchema.parse(body);
     return this.decisions.transitionProposal(user, spaceFrom(body), id, input.status);
   }
 
   @Post('proposals/:id/votes')
-  voteProposal(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
+  voteProposal(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     const input = proposalVoteSchema.parse(body);
     return this.decisions.voteProposal(user, spaceFrom(body), id, input.choice, input.comment);
   }
@@ -135,8 +152,17 @@ export class DecisionsController {
   }
 
   @Patch('wishlists/:id')
-  updateWishlist(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.decisions.updateWishlist(user, spaceFrom(body), id, wishlistUpdateSchema.parse(body));
+  updateWishlist(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.decisions.updateWishlist(
+      user,
+      spaceFrom(body),
+      id,
+      wishlistUpdateSchema.parse(body),
+    );
   }
 
   @Delete('wishlists/:id')
@@ -150,7 +176,12 @@ export class DecisionsController {
 
   @Post('wishlists/:id/items')
   addItem(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.decisions.addWishlistItem(user, spaceFrom(body), id, wishlistItemSchema.parse(body));
+    return this.decisions.addWishlistItem(
+      user,
+      spaceFrom(body),
+      id,
+      wishlistItemSchema.parse(body),
+    );
   }
 
   @Patch('wishlists/:id/items/:itemId')
@@ -180,7 +211,10 @@ export class DecisionsController {
   }
 
   @Get('history')
-  history(@CurrentUser() user: AuthenticatedUser, @Query() query: Record<string, string | undefined>) {
+  history(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.decisions.history(
       user,
       querySpace(query.spaceId),

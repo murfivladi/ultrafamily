@@ -86,10 +86,7 @@ export class FeedService {
       await this.access.assert(user.id, spaceId, 'feed', 'publish');
       const networkId = await this.networkScopeId(spaceId);
       if (!networkId) throw new ForbiddenException('space_has_no_family_network');
-      if (
-        input.audienceSpaceIds.length > 0 &&
-        !input.audienceSpaceIds.includes(networkId)
-      ) {
+      if (input.audienceSpaceIds.length > 0 && !input.audienceSpaceIds.includes(networkId)) {
         throw new ForbiddenException('network_audience_must_include_family_network');
       }
     }
@@ -153,7 +150,8 @@ export class FeedService {
     if (patch.title !== undefined) push('title', patch.title);
     if (patch.body !== undefined) push('body', patch.body);
     if (patch.visibility !== undefined) {
-      if (patch.visibility === 'network') await this.access.assert(user.id, spaceId, 'feed', 'publish');
+      if (patch.visibility === 'network')
+        await this.access.assert(user.id, spaceId, 'feed', 'publish');
       push('visibility', patch.visibility);
     }
     if (patch.audienceSpaceIds !== undefined) {
@@ -277,9 +275,7 @@ export class FeedService {
         [spaceId],
       );
       for (const event of events) {
-        const isBirthday = /compleann|birthday|день рожд/i.test(
-          `${event.title} ${event.category}`,
-        );
+        const isBirthday = /compleann|birthday|день рожд/i.test(`${event.title} ${event.category}`);
         if (isBirthday && !kinds.has('birthdays')) continue;
         if (!isBirthday && !kinds.has('plans')) continue;
         const key = `calendar:${event.id}`;

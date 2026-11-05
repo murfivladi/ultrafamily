@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { CollaborationClientMessage, CollaborationServerMessage } from '@ufos/contracts';
 import { WebSocket, WebSocketServer } from 'ws';
@@ -85,8 +80,7 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
 
   onApplicationBootstrap(): void {
     const httpServer = this.adapterHost.httpAdapter?.getHttpServer() as
-      | (import('node:http').Server & { __ufosWsAttached?: boolean })
-      | undefined;
+      (import('node:http').Server & { __ufosWsAttached?: boolean }) | undefined;
     if (!httpServer) return;
     this.server = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
     this.server.on('connection', (socket, request) => {
@@ -266,7 +260,7 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
           this.send(state.socket, { type: 'error', code: 'unknown_message_type' });
       }
     } catch (error) {
-      const code = error instanceof Error ? error.message.split(':')[0] ?? 'error' : 'error';
+      const code = error instanceof Error ? (error.message.split(':')[0] ?? 'error') : 'error';
       this.send(state.socket, { type: 'error', code });
     }
   }
@@ -356,7 +350,10 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
       userId: row.user_id,
       displayName: row.display_name,
       status: row.status,
-      lastSeenAt: row.last_seen_at instanceof Date ? row.last_seen_at.toISOString() : String(row.last_seen_at),
+      lastSeenAt:
+        row.last_seen_at instanceof Date
+          ? row.last_seen_at.toISOString()
+          : String(row.last_seen_at),
     }));
     for (const client of this.clients.values()) {
       if (client.spaceId !== spaceId) continue;
@@ -423,7 +420,11 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
     if (!state.spaceId) throw new Error('hello_required');
     let room: DocumentRoom;
     try {
-      const access = await this.documentsService.checkEditAccess(state.user, state.spaceId, message.documentId);
+      const access = await this.documentsService.checkEditAccess(
+        state.user,
+        state.spaceId,
+        message.documentId,
+      );
       if (!access.permission) throw new Error('document_write_denied');
       room = await this.ensureRoom(state.spaceId, message.documentId);
       room.clients.add(state.id);
@@ -525,7 +526,11 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
     };
     if (stored?.yjs_state) {
       try {
-        Y.applyUpdate(doc, new Uint8Array(Buffer.from(stored.yjs_state, 'base64')), DOCUMENT_ORIGIN);
+        Y.applyUpdate(
+          doc,
+          new Uint8Array(Buffer.from(stored.yjs_state, 'base64')),
+          DOCUMENT_ORIGIN,
+        );
       } catch {
         this.seedFromText(doc, stored.content);
       }
@@ -616,7 +621,14 @@ export class CollaborationGateway implements OnApplicationBootstrap, OnModuleDes
     await this.db.query(
       `INSERT INTO call_signals (id, room_id, from_user_id, to_user_id, kind, payload)
        VALUES ($1,$2,$3,$4,$5,$6)`,
-      [`sig_${crypto.randomUUID()}`, message.roomId, state.user.id, message.to, message.kind, JSON.stringify(payload)],
+      [
+        `sig_${crypto.randomUUID()}`,
+        message.roomId,
+        state.user.id,
+        message.to,
+        message.kind,
+        JSON.stringify(payload),
+      ],
     );
   }
 

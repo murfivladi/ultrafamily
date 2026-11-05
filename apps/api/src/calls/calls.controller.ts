@@ -1,12 +1,4 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import type { AuthenticatedUser } from '../common/authed-request';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -38,9 +30,7 @@ const stateSchema = z.object({
   audio: z.boolean().optional(),
   video: z.boolean().optional(),
   screen: z.boolean().optional(),
-  connectionState: z
-    .enum(['new', 'connecting', 'connected', 'disconnected', 'failed'])
-    .optional(),
+  connectionState: z.enum(['new', 'connecting', 'connected', 'disconnected', 'failed']).optional(),
   quality: z
     .object({
       rttMs: z.number().nullable().optional(),

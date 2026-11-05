@@ -117,7 +117,12 @@ export class MessengerController {
     @Param('id') id: string,
     @Query() query: Record<string, string | undefined>,
   ) {
-    return this.messenger.messages(user, querySpace(query.spaceId), id, messagesQuerySchema.parse(query));
+    return this.messenger.messages(
+      user,
+      querySpace(query.spaceId),
+      id,
+      messagesQuerySchema.parse(query),
+    );
   }
 
   @Post('chats/:id/messages')
@@ -179,7 +184,11 @@ export class MessengerController {
   }
 
   @Get('chats/:id/pinned')
-  pinned(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Query('spaceId') spaceId?: string) {
+  pinned(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query('spaceId') spaceId?: string,
+  ) {
     return this.messenger.pinnedMessages(user, querySpace(spaceId), id);
   }
 
@@ -214,7 +223,11 @@ export class MessengerController {
   }
 
   @Get('chats/:id/moderation')
-  moderation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Query('spaceId') spaceId?: string) {
+  moderation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query('spaceId') spaceId?: string,
+  ) {
     return this.messenger.moderationLog(user, querySpace(spaceId), id);
   }
 }

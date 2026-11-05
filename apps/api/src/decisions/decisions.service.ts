@@ -134,10 +134,18 @@ export class DecisionsService {
         next.autoClosePolls,
       ],
     );
-    await this.recordHistory(spaceId, 'governance', spaceId, 'update', user.id, 'Правила кворума обновлены', {
-      before: current,
-      after: next,
-    });
+    await this.recordHistory(
+      spaceId,
+      'governance',
+      spaceId,
+      'update',
+      user.id,
+      'Правила кворума обновлены',
+      {
+        before: current,
+        after: next,
+      },
+    );
     await this.audit.record({
       actorUserId: user.id,
       actorEmail: user.email,
@@ -166,7 +174,9 @@ export class DecisionsService {
       'SELECT * FROM polls WHERE space_id = $1 ORDER BY created_at DESC LIMIT 100',
       [spaceId],
     );
-    return Promise.all((refreshed.length > 0 ? refreshed : rows).map((row) => this.buildPoll(user, row)));
+    return Promise.all(
+      (refreshed.length > 0 ? refreshed : rows).map((row) => this.buildPoll(user, row)),
+    );
   }
 
   async poll(user: AuthenticatedUser, spaceId: string, id: string): Promise<Poll> {
@@ -216,11 +226,19 @@ export class DecisionsService {
       ],
     );
     if (!row) throw new NotFoundException('poll_not_created');
-    await this.recordHistory(spaceId, 'poll', row.id, 'create', user.id, `Опрос: ${input.question}`, {
-      question: input.question,
-      options,
-      closesAt,
-    });
+    await this.recordHistory(
+      spaceId,
+      'poll',
+      row.id,
+      'create',
+      user.id,
+      `Опрос: ${input.question}`,
+      {
+        question: input.question,
+        options,
+        closesAt,
+      },
+    );
     await this.audit.record({
       actorUserId: user.id,
       actorEmail: user.email,
@@ -545,7 +563,11 @@ export class DecisionsService {
       action: 'wishlist.create',
       wishlistId: row.id,
     });
-    return toWishlist({ ...row, owner_name: input.ownerUserId === user.id ? user.displayName : '' }, [], user.id);
+    return toWishlist(
+      { ...row, owner_name: input.ownerUserId === user.id ? user.displayName : '' },
+      [],
+      user.id,
+    );
   }
 
   async updateWishlist(
@@ -646,7 +668,10 @@ export class DecisionsService {
     if (!item) throw new NotFoundException('wishlist_item_not_found');
     // Surprise protection: the list owner cannot reserve or buy their own gift
     // and cannot see who did; other members manage reservations.
-    if (wishlist.owner_user_id === user.id && (patch.reserved !== undefined || patch.purchased !== undefined)) {
+    if (
+      wishlist.owner_user_id === user.id &&
+      (patch.reserved !== undefined || patch.purchased !== undefined)
+    ) {
       throw new ForbiddenException('wishlist_owner_cannot_reserve');
     }
     const fields: string[] = [];
@@ -673,7 +698,12 @@ export class DecisionsService {
     return { updated: true };
   }
 
-  async removeWishlistItem(user: AuthenticatedUser, spaceId: string, wishlistId: string, itemId: string) {
+  async removeWishlistItem(
+    user: AuthenticatedUser,
+    spaceId: string,
+    wishlistId: string,
+    itemId: string,
+  ) {
     await this.access.assert(user.id, spaceId, 'decisions', 'delete');
     await this.requireWishlist(spaceId, wishlistId);
     await this.db.query('DELETE FROM wishlist_items WHERE id = $1 AND wishlist_id = $2', [
@@ -734,7 +764,9 @@ export class DecisionsService {
     );
     const quorum = await this.quorum(row.space_id, votes.length, Number(row.quorum_percent ?? 50));
     const options: PollOption[] = pollOptionLabels(row).map((option) => {
-      const voters = votes.filter((vote) => parseJson<string[]>(vote.option_keys, []).includes(option.key));
+      const voters = votes.filter((vote) =>
+        parseJson<string[]>(vote.option_keys, []).includes(option.key),
+      );
       return {
         ...option,
         votes: voters.length,
@@ -773,7 +805,11 @@ export class DecisionsService {
     });
   }
 
-  private async quorum(spaceId: string, voters: number, quorumPercent: number): Promise<QuorumResult> {
+  private async quorum(
+    spaceId: string,
+    voters: number,
+    quorumPercent: number,
+  ): Promise<QuorumResult> {
     const eligible = await this.db.queryOne<{ count: number | string }>(
       `SELECT COUNT(*)::int AS count FROM memberships
        WHERE space_id = $1 AND role <> 'guest'`,
@@ -990,15 +1026,24 @@ export class DecisionsService {
       `INSERT INTO decision_history
         (id, space_id, entity, entity_id, action, actor_user_id, summary, snapshot)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [newId('dch'), spaceId, entity, entityId, action, actorUserId, summary, JSON.stringify(snapshot)],
+      [
+        newId('dch'),
+        spaceId,
+        entity,
+        entityId,
+        action,
+        actorUserId,
+        summary,
+        JSON.stringify(snapshot),
+      ],
     );
   }
 
   private async requirePoll(spaceId: string, id: string): Promise<PollRow> {
-    const row = await this.db.queryOne<PollRow>('SELECT * FROM polls WHERE id = $1 AND space_id = $2', [
-      id,
-      spaceId,
-    ]);
+    const row = await this.db.queryOne<PollRow>(
+      'SELECT * FROM polls WHERE id = $1 AND space_id = $2',
+      [id, spaceId],
+    );
     if (!row) throw new NotFoundException('poll_not_found');
     return row;
   }
@@ -1023,7 +1068,10 @@ export class DecisionsService {
     return row;
   }
 
-  private async resolveOwner(spaceId: string, userId: string | null | undefined): Promise<string | null> {
+  private async resolveOwner(
+    spaceId: string,
+    userId: string | null | undefined,
+  ): Promise<string | null> {
     if (!userId) return null;
     const row = await this.db.queryOne<{ user_id: string }>(
       'SELECT user_id FROM memberships WHERE space_id = $1 AND user_id = $2',

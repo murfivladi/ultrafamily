@@ -597,21 +597,19 @@ export function toWishlist(
     occasion: row.occasion,
     dueAt: iso(row.due_at),
     createdAt: iso(row.created_at) ?? new Date(0).toISOString(),
-    items: items.map(
-      (item): WishlistItem => ({
-        id: item.id,
-        wishlistId: item.wishlist_id,
-        title: item.title,
-        url: item.url,
-        priceCents: item.price_cents === null ? null : Number(item.price_cents),
-        currency: item.currency,
-        notes: item.notes,
-        priority: Number(item.priority ?? 2),
-        reservedBy: hideReservations ? (item.reserved_by ? 'hidden' : null) : item.reserved_by,
-        purchasedBy: hideReservations ? (item.purchased_by ? 'hidden' : null) : item.purchased_by,
-        createdAt: iso(item.created_at) ?? new Date(0).toISOString(),
-      }),
-    ),
+    items: items.map((item): WishlistItem => ({
+      id: item.id,
+      wishlistId: item.wishlist_id,
+      title: item.title,
+      url: item.url,
+      priceCents: item.price_cents === null ? null : Number(item.price_cents),
+      currency: item.currency,
+      notes: item.notes,
+      priority: Number(item.priority ?? 2),
+      reservedBy: hideReservations ? (item.reserved_by ? 'hidden' : null) : item.reserved_by,
+      purchasedBy: hideReservations ? (item.purchased_by ? 'hidden' : null) : item.purchased_by,
+      createdAt: iso(item.created_at) ?? new Date(0).toISOString(),
+    })),
   };
 }
 
@@ -678,7 +676,9 @@ export function toDocumentCollaborator(row: DocumentCollaboratorRow) {
     avatarColor: row.avatar_color ?? '#5B7CFA',
     permission: row.permission,
     lastSeenAt: iso(row.last_seen_at ?? null),
-    cursor: row.cursor ? parseJson<{ anchor: number; head: number } | null>(row.cursor, null) : null,
+    cursor: row.cursor
+      ? parseJson<{ anchor: number; head: number } | null>(row.cursor, null)
+      : null,
     editing: Boolean(row.editing),
   };
 }

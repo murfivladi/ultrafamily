@@ -578,7 +578,14 @@ async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> 
        quorum_percent, voting_rule, closes_at, created_by, created_at, updated_at)
      VALUES ($1,$2,'simple','Куда поедем летом?','Обсуждаем семейный отпуск',$3,FALSE,FALSE,'open',
        50,'majority',$4,$5,$6,$6)`,
-    [pollId, householdId, pollOptions, new Date(Date.now() + 7 * 86_400_000).toISOString(), ownerId, now],
+    [
+      pollId,
+      householdId,
+      pollOptions,
+      new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      ownerId,
+      now,
+    ],
   );
   await tx.query(
     `INSERT INTO poll_votes (poll_id, user_id, option_keys, comment, created_at, updated_at)
@@ -601,7 +608,14 @@ async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> 
     `INSERT INTO wishlists
       (id, space_id, title, owner_user_id, visibility, occasion, due_at, created_by, created_at)
      VALUES ($1,$2,'День рождения',$3,'household','День рождения',$4,$5,$6)`,
-    [wishlistId, householdId, ownerId, new Date(Date.now() + 20 * 86_400_000).toISOString(), ownerId, now],
+    [
+      wishlistId,
+      householdId,
+      ownerId,
+      new Date(Date.now() + 20 * 86_400_000).toISOString(),
+      ownerId,
+      now,
+    ],
   );
   await tx.query(
     `INSERT INTO wishlist_items (id, wishlist_id, title, url, price_cents, currency, notes, priority, created_at)
@@ -615,13 +629,7 @@ async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> 
     `INSERT INTO documents
       (id, space_id, kind, title, format, content, version, created_by, updated_by, created_at, updated_at)
      VALUES ($1,$2,'note','Семейные заметки','markdown',$3,1,$4,$4,$5,$5)`,
-    [
-      noteId,
-      householdId,
-      '# Семейные заметки\n\n- Общие планы\n- Список дел\n',
-      ownerId,
-      now,
-    ],
+    [noteId, householdId, '# Семейные заметки\n\n- Общие планы\n- Список дел\n', ownerId, now],
   );
   await tx.query(
     `INSERT INTO document_versions (id, document_id, version, title, content, created_by, note, created_at)
@@ -644,8 +652,8 @@ async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> 
      VALUES ($1,$2,'group','Чат Катании','',$3,$4,$4)`,
     [otherChatId, secondHouseholdId, adultId, now],
   );
-  await tx.query(
-    `INSERT INTO chat_members (chat_id, user_id, role) VALUES ($1,$2,'owner')`,
-    [otherChatId, adultId],
-  );
+  await tx.query(`INSERT INTO chat_members (chat_id, user_id, role) VALUES ($1,$2,'owner')`, [
+    otherChatId,
+    adultId,
+  ]);
 }

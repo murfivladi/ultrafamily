@@ -56,9 +56,7 @@ describe('Stage C messenger', () => {
       .expect(201);
     expect((second.body as { id: string }).id).toBe((first.body as { id: string }).id);
 
-    await adult.agent
-      .get(`/api/messenger/chats?spaceId=${adultSpace}`)
-      .expect(200);
+    await adult.agent.get(`/api/messenger/chats?spaceId=${adultSpace}`).expect(200);
     await adult.agent
       .get(`/api/messenger/chats/${chatId}/messages?spaceId=${adultSpace}`)
       .expect(404);
@@ -182,9 +180,7 @@ describe('Stage C family feed, polls and decisions', () => {
       .send({ spaceId: ownerSpace, emoji: '❤️' })
       .expect(201);
 
-    const posts = await owner.agent
-      .get(`/api/feed/posts?spaceId=${ownerSpace}`)
-      .expect(200);
+    const posts = await owner.agent.get(`/api/feed/posts?spaceId=${ownerSpace}`).expect(200);
     const post = posts.body.find((entry: { id: string }) => entry.id === postId);
     expect(post.comments).toHaveLength(1);
     expect(post.reactions).toHaveLength(1);
@@ -194,9 +190,7 @@ describe('Stage C family feed, polls and decisions', () => {
       .expect(200);
     expect(searched.body.length).toBe(1);
 
-    const adultPosts = await adult.agent
-      .get(`/api/feed/posts?spaceId=${adultSpace}`)
-      .expect(200);
+    const adultPosts = await adult.agent.get(`/api/feed/posts?spaceId=${adultSpace}`).expect(200);
     expect(adultPosts.body.some((entry: { id: string }) => entry.id === postId)).toBe(false);
   });
 
@@ -369,7 +363,11 @@ describe('Stage C documents and collaboration', () => {
     const comment = await owner.agent
       .post(`/api/documents/${documentId}/comments`)
       .set('x-csrf-token', owner.csrfToken)
-      .send({ spaceId: ownerSpace, body: 'Проверить пункт', anchor: { from: 0, to: 5, quote: 'Новый' } })
+      .send({
+        spaceId: ownerSpace,
+        body: 'Проверить пункт',
+        anchor: { from: 0, to: 5, quote: 'Новый' },
+      })
       .expect(201);
     await owner.agent
       .post(`/api/documents/${documentId}/comments/${comment.body.id}/resolve`)
@@ -397,7 +395,12 @@ describe('Stage C documents and collaboration', () => {
     const room = await owner.agent
       .post('/api/calls/rooms')
       .set('x-csrf-token', owner.csrfToken)
-      .send({ spaceId: ownerSpace, name: 'Вечерний звонок', kind: 'video', inviteUserIds: [child.userId] })
+      .send({
+        spaceId: ownerSpace,
+        name: 'Вечерний звонок',
+        kind: 'video',
+        inviteUserIds: [child.userId],
+      })
       .expect(201);
     const roomId = (room.body as { id: string }).id;
     expect(room.body.participants.length).toBe(2);

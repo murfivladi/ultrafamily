@@ -63,7 +63,11 @@ export class DocumentsController {
   }
 
   @Post(':id/content')
-  saveContent(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
+  saveContent(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     return this.documents.saveContent(user, spaceFrom(body), id, documentContentSchema.parse(body));
   }
 
@@ -125,7 +129,11 @@ export class DocumentsController {
   }
 
   @Post(':id/comments')
-  addComment(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
+  addComment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
     return this.documents.addComment(user, spaceFrom(body), id, commentSchema.parse(body));
   }
 
@@ -143,11 +151,14 @@ export class DocumentsController {
   @Post(':id/presence')
   presence(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() body: unknown) {
     const input = cursorSchema.parse(body);
-    return this.documents
-      .checkReadAccess(user, spaceFrom(body), id)
-      .then(async () => {
-        await this.documents.recordPresence(id, user.id, { anchor: input.anchor, head: input.head }, input.editing);
-        return { ok: true, transport: 'http-fallback' };
-      });
+    return this.documents.checkReadAccess(user, spaceFrom(body), id).then(async () => {
+      await this.documents.recordPresence(
+        id,
+        user.id,
+        { anchor: input.anchor, head: input.head },
+        input.editing,
+      );
+      return { ok: true, transport: 'http-fallback' };
+    });
   }
 }

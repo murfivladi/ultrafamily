@@ -81,14 +81,20 @@ class TestSocket {
   }
 }
 
-async function loginCookie(account: string): Promise<{ cookie: string; csrfToken: string; userId: string }> {
+async function loginCookie(
+  account: string,
+): Promise<{ cookie: string; csrfToken: string; userId: string }> {
   const response = await request(app.getHttpServer())
     .post('/api/auth/login')
     .send({ email: account, password: 'FamilyOS!2026' })
     .expect(200);
   const raw = response.headers['set-cookie'] as unknown as string[];
   const cookie = raw.map((entry) => entry.split(';')[0]).join('; ');
-  return { cookie, csrfToken: response.body.csrfToken as string, userId: response.body.user.id as string };
+  return {
+    cookie,
+    csrfToken: response.body.csrfToken as string,
+    userId: response.body.user.id as string,
+  };
 }
 
 beforeAll(async () => {
@@ -233,7 +239,12 @@ describe('Stage C realtime gateway', () => {
     const room = await owner.agent
       .post('/api/calls/rooms')
       .set('x-csrf-token', owner.csrfToken)
-      .send({ spaceId: ownerSpace, name: 'Тестовый звонок', kind: 'audio', inviteUserIds: [child.userId] })
+      .send({
+        spaceId: ownerSpace,
+        name: 'Тестовый звонок',
+        kind: 'audio',
+        inviteUserIds: [child.userId],
+      })
       .expect(201);
     const roomId = (room.body as { id: string }).id;
 
@@ -269,7 +280,11 @@ describe('Stage C realtime gateway', () => {
       connectionState: 'connected',
     });
     const state = await peer.nextOfType('call:state');
-    expect(state).toMatchObject({ roomId, userId: ownerLogin.userId, connectionState: 'connected' });
+    expect(state).toMatchObject({
+      roomId,
+      userId: ownerLogin.userId,
+      connectionState: 'connected',
+    });
 
     const pending = await owner.agent
       .get(`/api/calls/rooms/${roomId}/signals?spaceId=${ownerSpace}`)

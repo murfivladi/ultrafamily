@@ -209,7 +209,10 @@ export class MessengerService {
       entityId: chat.id,
       metadata: { fields: Object.keys(patch) },
     });
-    this.realtime.publish(spaceId, 'messenger', user.id, { action: 'chat.update', chatId: chat.id });
+    this.realtime.publish(spaceId, 'messenger', user.id, {
+      action: 'chat.update',
+      chatId: chat.id,
+    });
     const refreshed = await this.requireChat(spaceId, chatId);
     return this.buildChat(user, refreshed);
   }
@@ -243,11 +246,17 @@ export class MessengerService {
     return this.buildChat(user, chat);
   }
 
-  async removeChatMember(user: AuthenticatedUser, spaceId: string, chatId: string, memberId: string) {
+  async removeChatMember(
+    user: AuthenticatedUser,
+    spaceId: string,
+    chatId: string,
+    memberId: string,
+  ) {
     await this.access.assert(user.id, spaceId, 'messenger', 'manage_access');
     const chat = await this.requireChat(spaceId, chatId);
     if (chat.kind === 'direct') throw new BadRequestException('direct_chat_members_fixed');
-    if (memberId === chat.created_by) throw new BadRequestException('chat_creator_cannot_be_removed');
+    if (memberId === chat.created_by)
+      throw new BadRequestException('chat_creator_cannot_be_removed');
     const me = await this.memberRow(chat.id, user.id);
     if (memberId !== user.id) await this.assertModerator(user, chat, me);
     await this.db.query('DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2', [
@@ -442,11 +451,10 @@ export class MessengerService {
     await this.receipts(user.id, chat, id);
     await this.touchChat(chat.id, id, createdAt);
     if (!input.threadRootId) {
-      await this.db.query('UPDATE chat_members SET last_read_at = $3 WHERE chat_id = $1 AND user_id = $2', [
-        chat.id,
-        user.id,
-        createdAt,
-      ]);
+      await this.db.query(
+        'UPDATE chat_members SET last_read_at = $3 WHERE chat_id = $1 AND user_id = $2',
+        [chat.id, user.id, createdAt],
+      );
     }
 
     this.realtime.publish(spaceId, 'messenger', user.id, {
@@ -509,7 +517,12 @@ export class MessengerService {
     return this.firstHydrated([await this.requireMessage(chat.id, messageId)]);
   }
 
-  async messageHistory(user: AuthenticatedUser, spaceId: string, chatId: string, messageId: string) {
+  async messageHistory(
+    user: AuthenticatedUser,
+    spaceId: string,
+    chatId: string,
+    messageId: string,
+  ) {
     await this.access.assert(user.id, spaceId, 'messenger', 'read');
     const chat = await this.requireChat(spaceId, chatId);
     await this.assertChatReadable(user, chat);
@@ -540,7 +553,8 @@ export class MessengerService {
     const member = await this.memberRow(chat.id, user.id);
     const isModerator = await this.isModerator(user, chat, member);
     const isAuthor = existing.author_user_id === user.id;
-    if (!isAuthor && !isModerator) throw new ForbiddenException('message_author_or_moderator_required');
+    if (!isAuthor && !isModerator)
+      throw new ForbiddenException('message_author_or_moderator_required');
     if (isAuthor && !isModerator) {
       // Authors can only withdraw a message inside the retention window; the
       // moderation trail (versions + audit) still records the action.
@@ -558,7 +572,8 @@ export class MessengerService {
       actorUserId: user.id,
       actorEmail: user.email,
       spaceId,
-      action: isModerator && !isAuthor ? 'messenger.message.moderate_delete' : 'messenger.message.delete',
+      action:
+        isModerator && !isAuthor ? 'messenger.message.moderate_delete' : 'messenger.message.delete',
       entity: 'chat_message',
       entityId: messageId,
       metadata: { chatId: chat.id, reason, byModerator: isModerator },
@@ -655,7 +670,12 @@ export class MessengerService {
     return this.hydrate(rows);
   }
 
-  async thread(user: AuthenticatedUser, spaceId: string, chatId: string, rootId: string): Promise<ChatThreadView> {
+  async thread(
+    user: AuthenticatedUser,
+    spaceId: string,
+    chatId: string,
+    rootId: string,
+  ): Promise<ChatThreadView> {
     await this.access.assert(user.id, spaceId, 'messenger', 'read');
     const chat = await this.requireChat(spaceId, chatId);
     await this.assertChatReadable(user, chat);
@@ -743,12 +763,7 @@ export class MessengerService {
   // Moderation
   // -------------------------------------------------------------------------
 
-  async moderate(
-    user: AuthenticatedUser,
-    spaceId: string,
-    chatId: string,
-    input: ModerationInput,
-  ) {
+  async moderate(user: AuthenticatedUser, spaceId: string, chatId: string, input: ModerationInput) {
     await this.access.assert(user.id, spaceId, 'messenger', 'update');
     const chat = await this.requireChat(spaceId, chatId);
     const member = await this.memberRow(chat.id, user.id);
@@ -819,7 +834,11 @@ export class MessengerService {
     return entry;
   }
 
-  async moderationLog(user: AuthenticatedUser, spaceId: string, chatId: string): Promise<ChatModerationEntry[]> {
+  async moderationLog(
+    user: AuthenticatedUser,
+    spaceId: string,
+    chatId: string,
+  ): Promise<ChatModerationEntry[]> {
     await this.access.assert(user.id, spaceId, 'messenger', 'read');
     const chat = await this.requireChat(spaceId, chatId);
     const member = await this.memberRow(chat.id, user.id);
@@ -889,7 +908,9 @@ export class MessengerService {
     return toChatSummary(row, members, {
       unreadCount: Number(unread?.count ?? 0),
       mentionCount: Number(mentions?.count ?? 0),
-      lastMessagePreview: last ? `${last.author_name ?? ''}: ${last.body.slice(0, 120)}`.trim() : '',
+      lastMessagePreview: last
+        ? `${last.author_name ?? ''}: ${last.body.slice(0, 120)}`.trim()
+        : '',
       myRole: me?.role ?? null,
       myNotificationLevel: me?.notification_level ?? 'all',
     });
@@ -926,10 +947,10 @@ export class MessengerService {
   }
 
   private async requireChat(spaceId: string, chatId: string): Promise<ChatRow> {
-    const row = await this.db.queryOne<ChatRow>('SELECT * FROM chats WHERE id = $1 AND space_id = $2', [
-      chatId,
-      spaceId,
-    ]);
+    const row = await this.db.queryOne<ChatRow>(
+      'SELECT * FROM chats WHERE id = $1 AND space_id = $2',
+      [chatId, spaceId],
+    );
     if (!row) throw new NotFoundException('chat_not_found');
     return row;
   }

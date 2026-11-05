@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   CallConnectionState,
   CallDiagnostics,
@@ -16,7 +21,9 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { toCallRoom, type CallParticipantRow, type CallRoomRow } from '../stage-c/mappers';
 
 export function stunUrls(): string[] {
-  return (process.env.WEBRTC_STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302')
+  return (
+    process.env.WEBRTC_STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'
+  )
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
@@ -119,7 +126,12 @@ export class CallsService {
     return this.buildRoom(await this.requireRoom(spaceId, id));
   }
 
-  async join(user: AuthenticatedUser, spaceId: string, id: string, input: { audio?: boolean; video?: boolean }) {
+  async join(
+    user: AuthenticatedUser,
+    spaceId: string,
+    id: string,
+    input: { audio?: boolean; video?: boolean },
+  ) {
     await this.access.assert(user.id, spaceId, 'calls', 'read');
     const room = await this.requireRoom(spaceId, id);
     if (room.closed_at) throw new BadRequestException('call_closed');
@@ -284,7 +296,11 @@ export class CallsService {
     }));
   }
 
-  async diagnostics(user: AuthenticatedUser, spaceId: string, id: string): Promise<CallDiagnostics> {
+  async diagnostics(
+    user: AuthenticatedUser,
+    spaceId: string,
+    id: string,
+  ): Promise<CallDiagnostics> {
     await this.access.assert(user.id, spaceId, 'calls', 'read');
     await this.requireRoom(spaceId, id);
     const participants = await this.db.queryOne<{ count: number | string }>(
@@ -315,7 +331,10 @@ export class CallsService {
        WHERE p.room_id = $1 ORDER BY p.role ASC, p.joined_at ASC NULLS LAST`,
       [row.id],
     );
-    return toCallRoom(row, participants, { stunUrls: stunUrls(), turnConfigured: turnConfigured() });
+    return toCallRoom(row, participants, {
+      stunUrls: stunUrls(),
+      turnConfigured: turnConfigured(),
+    });
   }
 
   private async requireRoom(spaceId: string, id: string): Promise<CallRoomRow> {

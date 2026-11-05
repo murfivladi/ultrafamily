@@ -31,14 +31,22 @@ import {
   type DocumentRow,
   type DocumentVersionRow,
 } from '../stage-c/mappers';
-import type { commentSchema, documentContentSchema, documentPatchSchema, documentSchema } from './dto';
+import type {
+  commentSchema,
+  documentContentSchema,
+  documentPatchSchema,
+  documentSchema,
+} from './dto';
 
 type DocumentInput = z.infer<typeof documentSchema>;
 type DocumentPatch = z.infer<typeof documentPatchSchema>;
 type ContentInput = z.infer<typeof documentContentSchema>;
 type CommentInput = z.infer<typeof commentSchema>;
 
-const TEMPLATES: Record<string, { content: string; format: 'text' | 'markdown' | 'csv' | 'slides' }> = {
+const TEMPLATES: Record<
+  string,
+  { content: string; format: 'text' | 'markdown' | 'csv' | 'slides' }
+> = {
   blank: { content: '', format: 'markdown' },
   minutes: {
     content: '# Протокол встречи\n\n## Участники\n\n## Повестка\n\n1. \n\n## Решения\n\n- \n',
@@ -75,7 +83,11 @@ export class DocumentsService {
        ORDER BY d.archived_at NULLS FIRST, d.updated_at DESC LIMIT 300`,
       [spaceId],
     );
-    const permissions = await this.permissionMap(user, spaceId, rows.map((row) => row.id));
+    const permissions = await this.permissionMap(
+      user,
+      spaceId,
+      rows.map((row) => row.id),
+    );
     return rows.map((row) => toDocumentSummary(row, permissions.get(row.id) ?? 'read'));
   }
 
@@ -109,13 +121,19 @@ export class DocumentsService {
       presence: presence.map((entry) => ({
         userId: entry.user_id,
         displayName: entry.display_name,
-        cursor: entry.cursor ? parseJson<{ anchor: number; head: number } | null>(entry.cursor, null) : null,
+        cursor: entry.cursor
+          ? parseJson<{ anchor: number; head: number } | null>(entry.cursor, null)
+          : null,
         lastSeenAt: iso(entry.last_seen_at) ?? new Date(0).toISOString(),
       })),
     };
   }
 
-  async create(user: AuthenticatedUser, spaceId: string, input: DocumentInput): Promise<DocumentSummary> {
+  async create(
+    user: AuthenticatedUser,
+    spaceId: string,
+    input: DocumentInput,
+  ): Promise<DocumentSummary> {
     await this.access.assert(user.id, spaceId, 'documents', 'create');
     if (input.parentId) {
       const parent = await this.requireDocument(spaceId, input.parentId);

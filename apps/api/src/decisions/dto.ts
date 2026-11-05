@@ -8,7 +8,12 @@ export const governanceSchema = z.object({
   quorumPercent: z.number().int().min(0).max(100).optional(),
   votingRule: votingRuleSchema.optional(),
   allowAbstain: z.boolean().optional(),
-  defaultDurationHours: z.number().int().min(1).max(24 * 30).optional(),
+  defaultDurationHours: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 30)
+    .optional(),
   autoClosePolls: z.boolean().optional(),
 });
 
