@@ -19,7 +19,7 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 - `ci.yml` не менялся и по-прежнему делает полную проверочную сборку на push/PR.
 - На хостинг загружается уже готовый `.next`; `npm run build -w @ufos/web` там запускать не нужно.
 - Frontend слушает порт **26287** (`WEB_PORT=26287`).
-- `/api` и `/caldav` переписываются на **https://api.family.vladislavb.qzz.io** (`API_PROXY_ORIGIN`).
+- `/api` и `/caldav` переписываются на внутренний **http://127.0.0.1:25031** (`API_PROXY_ORIGIN`); публичный **https://api.family.vladislavb.qzz.io** остаётся только адресом reverse proxy в документации.
 - `APP_ORIGIN` уже задан вами в `./.env`; workflow добавляет только отсутствующие ключи и не перезаписывает его.
 
 ## Схема доступа
@@ -39,7 +39,7 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 | `FTP_VERIFY_CERT`       | variable            | `true` по умолчанию; `false` только для проверенного self-signed сертификата |
 | `FTP_TLS_MODE`          | variable            | `explicit` по умолчанию; `implicit` для TLS сразу на нестандартном порту     |
 | `APP_ORIGIN`            | variable            | необязательный внешний origin                                                |
-| `API_PROXY_ORIGIN`      | variable            | публичный API origin для frontend, по умолчанию задан в workflow             |
+| `API_PROXY_ORIGIN`      | variable            | внутренний backend `http://127.0.0.1:25031`; не используйте внешний HTTPS    |
 | `BOOTSTRAP_OWNER_EMAIL` | variable            | email первого владельца, по умолчанию `owner@ultra.family`                   |
 
 По умолчанию используется явный FTPS (`ftp://` + `AUTH TLS`): `ftp:ssl-force`, `ftp:ssl-protect-data`, passive mode. Если хостинг требует неявный FTPS, когда TLS начинается сразу на порту `2121`, установите `FTP_TLS_MODE=implicit` — workflow переключится на схему `ftps://`. Обычный FTP и SSH не применяются.
@@ -92,7 +92,7 @@ Push тега `v*` автоматически загружает **оба** payl
 
 Backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT`, `DB_DRIVER`, `DATABASE_SSL`, `DB_POOL_SIZE`, `PGLITE_DATA_DIR`, `SEED_DEMO_DATA`.
 
-Frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
+Frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=http://127.0.0.1:25031`.
 
 `SESSION_SECRET` и `BOOTSTRAP_OWNER_PASSWORD` генерируются случайно. Сгенерированный пароль первого владельца можно прочитать в `.env` на FTP; workflow не выводит его в логи. Повторный деплой не перезаписывает уже созданные значения.
 
@@ -109,8 +109,8 @@ Frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD`, `API_PROXY_ORIGIN=https
 Автоматически:
 
 - общие: `NODE_ENV=production`, `APP_VERSION`, `APP_ORIGIN` при наличии одноимённой GitHub Variable;
-- backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT=3001`, `DB_DRIVER=postgres`, `DATABASE_SSL=false`, `DB_POOL_SIZE=8`, `PGLITE_DATA_DIR=.data/pglite`, `SEED_DEMO_DATA=false`;
-- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD=`, `API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io`.
+- backend: `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_OWNER_EMAIL`, `API_PORT=25031`, `DB_DRIVER=postgres`, `DATABASE_SSL=false`, `DB_POOL_SIZE=8`, `PGLITE_DATA_DIR=.data/pglite`, `SEED_DEMO_DATA=false`;
+- frontend: `WEB_PORT=26287`, `NEXT_PUBLIC_DEMO_PASSWORD=`, `API_PROXY_ORIGIN=http://127.0.0.1:25031`.
 
 `BOOTSTRAP_OWNER_PASSWORD` генерируется один раз. После первого деплоя откройте backend `./.env`, прочитайте этот пароль и используйте его вместе с `BOOTSTRAP_OWNER_EMAIL` для первого входа. Не удаляйте и не дублируйте эту строку; если нужен другой пароль до первого входа — отредактируйте существующую строку.
 
@@ -127,7 +127,7 @@ APP_ORIGIN=https://family.example
 
 ```dotenv
 # примеры только если значения по умолчанию не подходят
-# API_PORT=3101
+# API_PORT=25031
 # DATABASE_SSL=true
 # DB_POOL_SIZE=8
 # BOOTSTRAP_OWNER_EMAIL=admin@family.example
@@ -140,7 +140,7 @@ APP_ORIGIN=https://family.example
 Обычно нужен адрес, по которому Next.js процесс может достучаться до Nest API:
 
 ```dotenv
-API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io
+API_PROXY_ORIGIN=http://127.0.0.1:25031
 ```
 
 Если API слушает другой порт/хост, укажите его. При необходимости:
@@ -150,7 +150,7 @@ API_PROXY_ORIGIN=https://api.family.vladislavb.qzz.io
 # APP_ORIGIN=https://family.example
 ```
 
-`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN` по умолчанию равен `https://api.family.vladislavb.qzz.io`; одноимённая **GitHub Variable** может задать другое значение, но только для отсутствующего ключа в `.env`.
+`APP_ORIGIN` уже задан вами в `./.env` и не перезаписывается. `API_PROXY_ORIGIN` по умолчанию равен `http://127.0.0.1:25031`; одноимённая **GitHub Variable** может задать другое значение, но только для отсутствующего ключа в `.env`. Не указывайте `https://api.family.vladislavb.qzz.io`: это вызовет исходящий TLS-запрос и `EPROTO`.
 
 ### 4. После правки
 
@@ -173,7 +173,7 @@ npm run start:prod -w @ufos/api
 npm run start -w @ufos/web
 ```
 
-Frontend уже собран в Actions, поэтому `npm run build -w @ufos/web` на хостинге не запускайте. `API_PROXY_ORIGIN` зашит в `.next` во время сборки; если этот адрес изменится, перезапустите `ftp.yml`, чтобы пересобрать frontend.
+Frontend уже собран в Actions, поэтому `npm run build -w @ufos/web` на хостинге не запускайте. `API_PROXY_ORIGIN` зашит в `.next` во время сборки; если внутренний адрес backend изменится, отредактируйте существующую строку в `.env` и перезапустите `ftp.yml`, чтобы пересобрать frontend.
 
 Команды запуска, порты, reverse proxy и HTTPS настраиваются в админке сервера. Миграции применяет сам API при старте. Workflow только загружает файлы.
 
@@ -236,6 +236,26 @@ Workflow теперь:
 - package job и upload job падают, если в payload всё-таки появился `.next/cache` или `*.pack`.
 
 Удалите уже загруженный `./apps/web/.next/cache/` на FTP вручную: `mirror -R` без `--delete` не чистит старые файлы. Удалять всю `./apps/web/.next/` не нужно — `BUILD_ID`, `server/`, `static/` и `required-server-files.json` обязательны для запуска.
+
+## `Failed to proxy ... EPROTO / SSL alert number 40`
+
+Ошибка возникала потому, что `next.config.mjs` делал **исходящий HTTPS-запрос** из Node.js на `https://api.family.vladislavb.qzz.io`. TLS handshake отклонялся удалённой стороной (`SSL alert number 40`), поэтому логин `/api/auth/login` не доходил до Nest API.
+
+Теперь `API_PROXY_ORIGIN` по умолчанию равен внутреннему backend `http://127.0.0.1:25031`. Публичный `https://api.family.vladislavb.qzz.io` сохранён только в документации/`RELEASE.json` как адрес reverse proxy. `next.config.mjs`, `scripts/package-ftp.sh` и workflow не дают снова запечь внешний HTTPS origin в `.next`.
+
+Важно: workflow **не перезаписывает** существующие строки `.env`. Если в frontend `./.env` уже есть старое значение, замените именно эту строку, не добавляйте дубликат:
+
+```dotenv
+API_PROXY_ORIGIN=http://127.0.0.1:25031
+```
+
+А в backend `./.env` при необходимости исправьте существующую строку:
+
+```dotenv
+API_PORT=25031
+```
+
+После правки перезапустите `ftp.yml`, чтобы пересобрать `.next`, затем перезапустите frontend/backend в админке сервера. Если старые значения остались в `.env`, upload job выведет явные `WARNING`; сам workflow существующие строки не перезаписывает. Отключать проверку TLS через `NODE_TLS_REJECT_UNAUTHORIZED` не нужно.
 
 ## Ограничения
 

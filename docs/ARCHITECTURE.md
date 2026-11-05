@@ -9,7 +9,7 @@ Browser
   └── Next.js (0.0.0.0:26287)
         ├── public pages
         ├── authenticated SPA-like pages
-        └── /api/* rewrite ──> https://api.family.vladislavb.qzz.io
+        └── /api/* rewrite ──> http://127.0.0.1:25031 (NestJS)
                                   ├── global AuthGuard + CSRF
                                   ├── AccessService
                                   ├── module services
@@ -19,7 +19,7 @@ Browser
                                          └── PGlite ───> local preview / Jest
 ```
 
-В браузере нет абсолютных URL another service: все вызовы идут на относительный `/api/*`. Next.js сервер-side проксирует путь через `API_PROXY_ORIGIN`. Это необходимо для Arena/e2b preview, Cloudflare и предотвращения смешанного CORS-контента.
+В браузере нет абсолютных URL другого сервиса: все вызовы идут на относительный `/api/*`. Next.js сервер-side проксирует путь на внутренний `http://127.0.0.1:25031` через `API_PROXY_ORIGIN`. Публичный `https://api.family.vladislavb.qzz.io` остаётся адресом reverse proxy в документации, а не исходящим TLS-запросом из Node.js.
 
 ## Слои API
 

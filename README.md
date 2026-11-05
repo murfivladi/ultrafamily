@@ -44,7 +44,7 @@ npm run dev
 ```
 
 - Web: <http://localhost:3000>
-- API: <http://localhost:3001/api/health>
+- API: <http://localhost:25031/api/health>
 - Next.js прозрачно проксирует относительные `/api/*` запросы браузера к NestJS, поэтому браузерный код не обращается к `localhost` другого сервиса.
 
 Для разработки не нужны Docker или отдельный PostgreSQL: по умолчанию используется `.data/pglite`. Для production обязательны `DATABASE_URL`, `SESSION_SECRET`, `BOOTSTRAP_OWNER_PASSWORD` и внешняя шифрованная резервная копия.

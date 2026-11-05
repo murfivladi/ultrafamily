@@ -84,7 +84,7 @@ jobs:
       - name: Build FTP payloads in Actions
         env:
           VERSION: ${{ steps.meta.outputs.version }}
-          API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || 'https://api.family.vladislavb.qzz.io' }}
+          API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || 'http://127.0.0.1:25031' }}
           APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
         run: npm run release:ftp -- "$VERSION"
 
@@ -109,6 +109,10 @@ jobs:
           test -d releases/ftp/frontend/apps/web/public
           test ! -e releases/ftp/frontend/apps/web/.next/cache
           test -z "$(find releases/ftp/frontend -type f -name '*.pack' -print -quit)"
+          if grep -Rqs 'https://api.family.vladislavb.qzz.io' releases/ftp/frontend/apps/web/.next; then
+            echo 'External HTTPS API origin is baked into .next; use http://127.0.0.1:25031 to avoid EPROTO.' >&2
+            exit 1
+          fi
           echo 'Prebuilt frontend .next root (build cache excluded):'
           find releases/ftp/frontend/apps/web/.next -maxdepth 1 -printf '%f\n' | sort
 
@@ -163,7 +167,7 @@ jobs:
       FTP_TLS_MODE: ${{ vars.FTP_TLS_MODE || 'explicit' }}
       RELEASE_VERSION: ${{ needs.package.outputs.version }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
-      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
+      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || 'http://127.0.0.1:25031' }}
       BOOTSTRAP_OWNER_EMAIL: ${{ vars.BOOTSTRAP_OWNER_EMAIL || '' }}
     steps:
       - name: Checkout upload scripts
@@ -237,7 +241,7 @@ jobs:
       FTP_TLS_MODE: ${{ vars.FTP_TLS_MODE || 'explicit' }}
       RELEASE_VERSION: ${{ needs.package.outputs.version }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN || '' }}
-      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || '' }}
+      API_PROXY_ORIGIN: ${{ vars.API_PROXY_ORIGIN || 'http://127.0.0.1:25031' }}
       BOOTSTRAP_OWNER_EMAIL: ${{ vars.BOOTSTRAP_OWNER_EMAIL || '' }}
     steps:
       - name: Checkout upload scripts

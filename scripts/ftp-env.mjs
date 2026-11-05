@@ -14,9 +14,7 @@ const version =
   clean(process.env.RELEASE_VERSION || '0.1.0-stage-b').replace(/[^A-Za-z0-9._-]+/g, '-') ||
   '0.1.0-stage-b';
 const appOrigin = clean(process.env.APP_ORIGIN);
-const apiProxyOrigin = clean(
-  process.env.API_PROXY_ORIGIN || 'https://api.family.vladislavb.qzz.io',
-);
+const apiProxyOrigin = clean(process.env.API_PROXY_ORIGIN || 'http://127.0.0.1:25031');
 const bootstrapOwnerEmail = clean(process.env.BOOTSTRAP_OWNER_EMAIL || 'owner@ultra.family');
 
 const lines = ['NODE_ENV=production', `APP_VERSION=${version}`];
@@ -27,7 +25,7 @@ if (target === 'backend') {
     `SESSION_SECRET=${randomBytes(48).toString('base64url')}`,
     `BOOTSTRAP_OWNER_PASSWORD=Ufos-${randomBytes(18).toString('base64url')}!`,
     `BOOTSTRAP_OWNER_EMAIL=${bootstrapOwnerEmail}`,
-    'API_PORT=3001',
+    'API_PORT=25031',
     'DB_DRIVER=postgres',
     'DATABASE_SSL=false',
     'DB_POOL_SIZE=8',

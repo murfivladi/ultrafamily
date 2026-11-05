@@ -54,7 +54,7 @@ if (isProduction && !databaseUrl) {
 }
 
 export const config = {
-  port: Number(process.env.API_PORT || 3001),
+  port: Number(process.env.API_PORT || 25031),
   isProduction,
   isTest,
   version: process.env.APP_VERSION || '0.1.0-stage-b',

@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      API_PORT: 3001
+      API_PORT: 25031
       DB_DRIVER: postgres
       DATABASE_URL: postgres://${POSTGRES_USER:-ufos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ufos}
       DATABASE_SSL: "false"
@@ -39,7 +39,7 @@ services:
       - ufos_files:/var/lib/ufos/files
       - ./backups:/app/backups
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:25031/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      API_PROXY_ORIGIN: http://api:3001
+      API_PROXY_ORIGIN: http://api:25031
       APP_ORIGIN: ${APP_ORIGIN:-}
     depends_on:
       api:
