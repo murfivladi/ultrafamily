@@ -95,27 +95,31 @@ jobs:
             root="releases/ftp/$target"
             test -f "$root/.env.example"
             test -f "$root/.nvmrc"
-            test -f "$root/.npmrc"
             test -f "$root/RELEASE.json"
             test -f "$root/FTP-NOTES.txt"
             test -f "$root/ENV-SETUP.txt"
-            test -f "$root/package.json"
-            test -f "$root/package-lock.json"
-            test -f "$root/packages/contracts/dist/index.js"
-            test -f "$root/apps/web/package.json"
           done
-          test -f releases/ftp/backend/apps/api/dist/main.js
-          test -f releases/ftp/frontend/apps/web/.next/trace
-          test -d releases/ftp/frontend/apps/web/.next/static
-          test -d releases/ftp/frontend/apps/web/public
-          test ! -e releases/ftp/frontend/apps/web/.next/cache
-          test -z "$(find releases/ftp/frontend -type f -name '*.pack' -print -quit)"
-          if grep -Rqs 'https://api.family.vladislavb.qzz.io' releases/ftp/frontend/apps/web/.next; then
+          backend="releases/ftp/backend"
+          test -f "$backend/.npmrc"
+          test -f "$backend/package.json"
+          test -f "$backend/package-lock.json"
+          test -f "$backend/packages/contracts/dist/index.js"
+          test -f "$backend/apps/web/package.json"
+          test -f "$backend/apps/api/dist/main.js"
+          frontend="releases/ftp/frontend"
+          # Standalone frontend: self-contained, the server never runs npm.
+          test -f "$frontend/apps/web/server.js"
+          test -f "$frontend/node_modules/next/package.json"
+          test -d "$frontend/apps/web/.next/static"
+          test -d "$frontend/apps/web/public"
+          test ! -e "$frontend/apps/web/.next/cache"
+          test -z "$(find "$frontend" -type f -name '*.pack' -print -quit)"
+          if grep -Rqs 'https://api.family.vladislavb.qzz.io' "$frontend/apps/web/.next"; then
             echo 'External HTTPS API origin is baked into .next; use http://127.0.0.1:25031 to avoid EPROTO.' >&2
             exit 1
           fi
-          echo 'Prebuilt frontend .next root (build cache excluded):'
-          find releases/ftp/frontend/apps/web/.next -maxdepth 1 -printf '%f\n' | sort
+          echo 'Prebuilt frontend standalone apps/web/.next root:'
+          find "$frontend/apps/web/.next" -maxdepth 1 -printf '%f\n' | sort
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
@@ -143,7 +147,6 @@ jobs:
             !releases/ftp/frontend/**/.env
             !releases/ftp/frontend/**/.env.local
             !releases/ftp/frontend/**/.env.*.local
-            !releases/ftp/frontend/**/node_modules/
             !releases/ftp/frontend/**/.git/
             !releases/ftp/frontend/**/.next/cache/
             !releases/ftp/frontend/**/.next/cache/**
@@ -212,7 +215,8 @@ jobs:
           test -f "$LOCAL_DIR/RELEASE.json"
           test -f "$LOCAL_DIR/.env.example"
           if [[ "$FTP_TARGET" == 'frontend' ]]; then
-            test -f "$LOCAL_DIR/apps/web/.next/trace"
+            test -f "$LOCAL_DIR/apps/web/server.js"
+            test -f "$LOCAL_DIR/node_modules/next/package.json"
             test -d "$LOCAL_DIR/apps/web/.next/static"
             test -d "$LOCAL_DIR/apps/web/public"
             test ! -e "$LOCAL_DIR/apps/web/.next/cache"
@@ -286,7 +290,8 @@ jobs:
           test -f "$LOCAL_DIR/RELEASE.json"
           test -f "$LOCAL_DIR/.env.example"
           if [[ "$FTP_TARGET" == 'frontend' ]]; then
-            test -f "$LOCAL_DIR/apps/web/.next/trace"
+            test -f "$LOCAL_DIR/apps/web/server.js"
+            test -f "$LOCAL_DIR/node_modules/next/package.json"
             test -d "$LOCAL_DIR/apps/web/.next/static"
             test -d "$LOCAL_DIR/apps/web/public"
             test ! -e "$LOCAL_DIR/apps/web/.next/cache"

@@ -33,7 +33,12 @@ if (target === 'backend') {
     'SEED_DEMO_DATA=false',
   );
 } else {
-  lines.push('WEB_PORT=26287', 'NEXT_PUBLIC_DEMO_PASSWORD=', `API_PROXY_ORIGIN=${apiProxyOrigin}`);
+  lines.push(
+    'PORT=26287',
+    'WEB_PORT=26287',
+    'NEXT_PUBLIC_DEMO_PASSWORD=',
+    `API_PROXY_ORIGIN=${apiProxyOrigin}`,
+  );
 }
 
 process.stdout.write(`${lines.join('\n')}\n`);

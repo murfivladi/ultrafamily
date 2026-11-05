@@ -57,16 +57,16 @@ API_PROXY_ORIGIN=http://127.0.0.1:25031
 
 ## Первый запуск
 
-Через админку сервера/хостинга, в корне каждого FTP-аккаунта. Ставьте зависимости **только для нужного workspace** — голая `npm ci --omit=dev` ставит весь монорепозиторий и на хостинге с 1–2 ГБ RAM умирает от OOM (см. ниже):
+Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
 
 ```bash
-# backend-аккаунт
+# backend-аккаунт: зависимости только API-workspace (см. раздел про OOM ниже)
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
 npm run start:prod -w @ufos/api
 
-# frontend-аккаунт
-npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/web --include-workspace-root=false
-npm run start -w @ufos/web
+# frontend-аккаунт: npm НЕ нужен вообще. Payload — это Next.js standalone
+# (apps/web/server.js + минимальный node_modules), установка на сервере не выполняется.
+PORT=26287 HOSTNAME=0.0.0.0 node apps/web/server.js
 ```
 
 ### Если `npm ci` падает с OOM (Killed / JavaScript heap out of memory)
@@ -82,11 +82,12 @@ npm run start -w @ufos/web
 
 Что делать:
 
-1. Используйте scoped-команды из «Первого запуска» выше — это основное исправление. Корневой `.npmrc` (он лежит и в обоих payload'ах) дополнительно отключает audit/fund/update-notifier и ограничивает параллельность загрузок (`maxsockets=4`).
-2. На время установки остановите остальные Node-процессы (API, web, ws-proxy): npm нужен весь свободный объём.
-3. Если свободной RAM меньше ~1 ГБ, добавьте swap, например 2 ГБ: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` (на shared-хостинге без root это недоступно — тогда поможет только пункт 1 и остановка процессов).
-4. Не лечите OOM увеличением `--max-old-space-size` вслепую: при жёстком лимите контейнера/хостинга это лишь меняет «Killed» на «JavaScript heap out of memory». Значение имеет смысл ставить только чуть ниже реального свободного объёма, например `NODE_OPTIONS=--max-old-space-size=1536` при 2 ГБ свободной RAM.
-5. `--ignore-scripts` в командах выше безопасен для этого дерева зависимостей (нативные бинарники Next/sharp/PGlite приезжают готовыми optional-пакетами) и убирает дочерние процессы установки.
+1. **Frontend: не запускайте npm на сервере вообще.** Текущий frontend-payload — Next.js standalone (`output: 'standalone'` в `apps/web/next.config.mjs`): в Actions собираются `apps/web/server.js` и минимальный traced `node_modules` (~120 МБ вместо ~540 МБ у полной установки). Запуск — `PORT=26287 HOSTNAME=0.0.0.0 node apps/web/server.js`. Даже scoped-установка web-workspace (`--workspace=@ufos/web`) на слабом хостинге всё равно умирает: пакеты Next.js большие, пик ~0,7 ГБ — поэтому установка с frontend-сервера убрана полностью.
+2. **Backend: scoped-команда из «Первого запуска».** Корневой `.npmrc` (лежит и в backend-payload) дополнительно отключает audit/fund/update-notifier и ограничивает параллельность загрузок (`maxsockets=4`).
+3. На время установки backend остановите остальные Node-процессы (web, ws-proxy): npm нужен весь свободный объём.
+4. Если свободной RAM меньше ~1 ГБ, добавьте swap, например 2 ГБ: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` (на shared-хостинге без root это недоступно — тогда помогут только пункты 1–3).
+5. Не лечите OOM увеличением `--max-old-space-size` вслепую: при жёстком лимите контейнера/хостинга это лишь меняет «Killed» на «JavaScript heap out of memory». Значение имеет смысл ставить только чуть ниже реального свободного объёма, например `NODE_OPTIONS=--max-old-space-size=1536` при 2 ГБ свободной RAM.
+6. `--ignore-scripts` в командах выше безопасен для этого дерева зависимостей (нативные бинарники Next/sharp/PGlite приезжают готовыми optional-пакетами) и убирает дочерние процессы установки.
 
 Frontend слушает порт `26287`; backend слушает `API_PORT=25031`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Next.js направляет `/api` и `/caldav` на внутренний `http://127.0.0.1:25031`; `https://api.family.vladislavb.qzz.io` остаётся публичным адресом reverse proxy. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
