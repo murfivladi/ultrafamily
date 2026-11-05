@@ -6,14 +6,14 @@
 
 ## Состав
 
-| Компонент                                 | Назначение                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------- |
-| `.github/workflows/ci.yml`                | форматирование, синтаксис скриптов, тесты, typecheck, build               |
-| `.github/workflows/ftp.yml`               | один workflow с `target: backend \| frontend \| both`                     |
-| `scripts/package-ftp.sh`                  | два отдельных payload'а: `releases/ftp/backend` и `releases/ftp/frontend` |
-| `scripts/ftp-upload.sh`                   | FTPS-загрузка в `./` и merge-only-missing `.env`                          |
-| `.env.example`                            | шаблон всех переменных окружения                                          |
-| `scripts/backup.sh`, `scripts/restore.sh` | ручной backup/restore PostgreSQL, не часть Actions                        |
+| Компонент                                 | Назначение                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------- |
+| `.github/workflows/ci.yml`                | форматирование, синтаксис скриптов, тесты, typecheck, build       |
+| `.github/workflows/ftp.yml`               | один workflow с `target: backend \| frontend \| both`             |
+| `scripts/package-ftp.sh`                  | предсобранный backend и исходники frontend для сборки на хостинге |
+| `scripts/ftp-upload.sh`                   | FTPS-загрузка в `./` и merge-only-missing `.env`                  |
+| `.env.example`                            | шаблон всех переменных окружения                                  |
+| `scripts/backup.sh`, `scripts/restore.sh` | ручной backup/restore PostgreSQL, не часть Actions                |
 
 Удалённые SSH/SFTP-скрипты и workflow не входят в деплой. Файлы `Dockerfile.*` и `docker-compose.yml` остаются в репозитории как альтернативные артефакты, но в этом сценарии не запускаются.
 
@@ -25,12 +25,12 @@
 - удалённый каталог всегда `./`;
 - FTPS: по умолчанию явный `AUTH TLS`; `FTP_TLS_MODE=implicit` для TLS сразу на порту; TLS для control и data channel;
 - загрузка без `SITE CHMOD`/`MFF`: права файлов задаёт сервер, workflow не меняет permissions;
-- GitHub Artifact включает hidden files: `.next/` и `.env.example` не теряются между job'ами; `lftp` использует `ftp:list-options -a`;
+- GitHub Artifact включает hidden dot-файлы `.env.example` и `.nvmrc`; `.next/` создаётся на хостинге; `lftp` использует `ftp:list-options -a`;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 Workflow загружает **содержимое** двух GitHub Artifact напрямую в корень `./` каждого FTP-аккаунта; локальная папка `payload/` runner'а на FTP не создаётся. Старую `./artifact/` от предыдущих запусков удалите вручную: `mirror -R` не использует `--delete`.
 
-Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит `.next`, `public`, `next.config.mjs`, contracts и manifests. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
+Workflow загружает два GitHub Artifact по отдельности. Backend artifact содержит собранный Nest API, contracts, SQL внутри `dist`, корневые manifests и `package-lock.json`. Frontend artifact содержит исходники `apps/web/src`, `public`, конфиги Next.js, contracts, `HOSTING-BUILD.txt` и manifests, но не содержит `.next`: frontend собирается на хостинге. Ни один artifact не содержит `.env`, SSH-ключей, VCS, `node_modules`, БД или backups.
 
 ## `.env`
 
@@ -52,27 +52,38 @@ APP_ORIGIN=https://family.example
 API_PROXY_ORIGIN=http://127.0.0.1:3001
 ```
 
-Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
+После изменения `.env` frontend нужно пересобрать на хостинге командой `npm run build -w @ufos/web`. Остальные настройки первого запуска вводятся в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
 ## Первый запуск
 
-Через админку сервера/хостинга:
+Через админку сервера/хостинга, в корне каждого FTP-аккаунта.
+
+Backend уже собран в Actions:
 
 ```bash
 npm ci --omit=dev
 npm run start:prod -w @ufos/api
+```
+
+Frontend собирается на хостинге после настройки `./.env`:
+
+```bash
+nvm use                       # Node.js 22 из .nvmrc
+npm ci                        # dev-зависимости нужны для next build
+npm run contracts:build
+npm run build -w @ufos/web
 npm run start -w @ufos/web
 ```
 
-Запуск каждого компонента настраивается в своём FTP-каталоге. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на backend. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
+`npm ci --omit=dev` до сборки frontend использовать нельзя. После успешной сборки можно при желании выполнить `npm prune --omit=dev`. Reverse proxy направляет внешний трафик на frontend, а `/api` и `/caldav` — на backend. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
 ## Обновление
 
 1. Убедитесь, что CI зелёный.
 2. Сделайте backup PostgreSQL по [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
 3. В Actions запустите `FTP deploy` с `target: backend`, `frontend` или `both`.
-4. Workflow соберёт payload'ы, проверит тесты/typecheck/build и загрузит только выбранные файлы.
-5. Перезапустите сервисы в админке сервера. Workflow сам этого не делает.
+4. Workflow соберёт backend, проверит тесты/typecheck, упакует исходники frontend и загрузит только выбранные файлы.
+5. Для frontend выполните `npm run build -w @ufos/web` на хостинге, затем перезапустите сервисы в админке сервера. Workflow сам этого не делает.
 
 ## Откат
 

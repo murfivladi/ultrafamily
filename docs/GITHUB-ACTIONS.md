@@ -3,13 +3,22 @@
 Автоматизация делает **только загрузку файлов по FTPS**. Она не выполняет SSH-команды, не перезапускает сервисы, не применяет миграции вручную и не использует Docker Compose. Backend и frontend загружаются отдельно, в корень `./` своих FTP-аккаунтов.
 
 - `.github/workflows/ci.yml` — проверки на каждый push/PR.
-- `.github/workflows/ftp.yml` — сборка двух payload'ов и раздельная загрузка.
-- `scripts/package-ftp.sh` — собирает `releases/ftp/backend` и `releases/ftp/frontend`.
+- `.github/workflows/ftp.yml` — сборка backend, подготовка исходников frontend и раздельная FTPS-загрузка.
+- `scripts/package-ftp.sh` — собирает backend `dist`, контракты и исходники frontend для сборки на хостинге.
 - `scripts/ftp-upload.sh` — FTPS-загрузка одного payload'а и слияние `.env`.
 - `scripts/ftp-env.mjs` — генерирует автоматические значения.
 - `scripts/merge-env.mjs` — дописывает только недостающие ключи, сохраняя ваши значения.
 
 SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
+
+## Где собирается frontend
+
+По вашему выбору сборка frontend перенесена на хостинг:
+
+- **GitHub Actions `ftp.yml` больше не запускает `next build`**. Он собирает только contracts и Nest API (`npm run build:ftp-backend`), затем упаковывает backend `dist` и frontend **исходники**.
+- `.github/workflows/ci.yml` оставлен без изменений: на push/PR он по-прежнему выполняет полную проверочную сборку `npm run build`. Это CI-проверка, а не деплойный artifact.
+- Frontend artifact содержит `apps/web/src`, `public`, конфиги, `package-lock.json`, contracts и `.env.example`, но **не содержит `apps/web/.next`**.
+- `./apps/web/.next/` создаётся командой `npm run build -w @ufos/web` уже на хостинге, в корне frontend FTP-аккаунта. Workflow не запускает удалённые команды.
 
 ## Схема доступа
 
@@ -47,10 +56,13 @@ SSH-workflow, `scripts/deploy-remote.sh` и SFTP-скрипт удалены.
 ./RELEASE.json
 ./FTP-NOTES.txt
 ./ENV-SETUP.txt
+./HOSTING-BUILD.txt
+./.nvmrc
 ./.env.example
 ./.env
-./apps/...
-./packages/...
+./apps/web/src/...
+./apps/web/public/...
+./packages/contracts/...
 ```
 
 Папок `artifact/` или `payload/` на FTP создаваться не должно. Если от предыдущих запусков уже осталась `./artifact/`, удалите её вручную в файловом менеджере хостинга: `mirror -R` намеренно работает без `--delete` и не удаляет старые файлы.
@@ -71,7 +83,7 @@ Push тега `v*` автоматически загружает **оба** payl
 3. Читает существующий `.env` из корня FTP-аккаунта.
 4. Генерирует автоматические значения.
 5. Дописывает **только отсутствующие ключи**; существующие строки, комментарии и вручную введённые значения сохраняются.
-6. Загружает файлы релиза через `mirror -R` без `--delete`, затем выгружает объединённый `.env`.
+6. Загружает backend `dist` либо frontend исходники через `mirror -R` без `--delete`, затем выгружает объединённый `.env`.
 
 ## Что попадает в `.env` автоматически
 
@@ -142,23 +154,38 @@ API_PROXY_ORIGIN=http://127.0.0.1:3001
 ### 4. После правки
 
 1. Сохраните `./.env` в корне соответствующего FTP-аккаунта.
-2. Перезапустите процессы в админке сервера: `npm run start:prod -w @ufos/api` и `npm run start -w @ufos/web`.
+2. Перезапустите backend; для frontend сначала пересоберите его на хостинге, потому что `APP_ORIGIN`/`API_PROXY_ORIGIN` читаются при `next build`.
 3. Первый вход сделайте с email/паролем из backend `.env`.
 4. Остальные первичные настройки — название семьи, пользователи, модули и т.п. — введите в уже существующей админке платформы. Новый setup-визард не добавлялся.
 
 Если админка сервера задаёт переменные окружения напрямую, они имеют приоритет над `.env`: загрузчик заполняет только те `process.env`, которые ещё не определены.
 
-## Первый запуск на сервере
+## Сборка и первый запуск на хостинге
 
-Через админку сервера/хостинга:
+### Backend — уже собран в Actions
+
+В корне backend FTP-аккаунта:
 
 ```bash
 npm ci --omit=dev
-# backend
 npm run start:prod -w @ufos/api
-# frontend
+```
+
+### Frontend — собираете вы на хостинге
+
+В корне frontend FTP-аккаунта, после настройки `./.env`:
+
+```bash
+nvm use                       # Node.js 22 из .nvmrc
+npm ci                        # нужны dev-зависимости для next build
+npm run contracts:build
+npm run build -w @ufos/web
 npm run start -w @ufos/web
 ```
+
+`npm ci --omit=dev` здесь **нельзя** использовать до сборки: TypeScript, PostCSS и Tailwind лежат в devDependencies. После успешной сборки можно при желании выполнить `npm prune --omit=dev`; `next` сам является production-зависимостью.
+
+Если меняете `.env` после сборки — особенно `APP_ORIGIN`, `API_PROXY_ORIGIN` или `NEXT_PUBLIC_*` — повторите `npm run build -w @ufos/web` и перезапустите web-процесс. Точная шпаргалка лежит в корне payload: `HOSTING-BUILD.txt`.
 
 Команды запуска, порты, reverse proxy и HTTPS настраиваются в админке сервера. Миграции применяет сам API при старте. Workflow только загружает файлы.
 
@@ -195,19 +222,11 @@ Workflow теперь:
 
 Если какому-то файлу нужен особый executable bit, выставьте его в панели хостинга/админке сервера, а не через FTP-деплой. Повторно запускать `chmod` в workflow не нужно.
 
-## Если frontend загрузил только `public/` и `.next/trace`
+## Почему в artifact нет `.next`
 
-Причина — скрытые файлы/папки. Папка Next.js `.next/` начинается с точки, а `actions/upload-artifact@v4` по умолчанию исключает hidden files и hidden directories [2](https://github.com/actions/upload-artifact/blob/v4/README.md). Кроме того, некоторые FTP-серверы не показывают dot-файлы в листинге; для этого `lftp` рекомендует `set ftp:list-options -a` [5](https://linux.die.net/man/1/lftp).
+Теперь это ожидаемо: frontend собирается на хостинге, поэтому `.next/` не загружается из Actions. Если после `npm run build -w @ufos/web` на хостинге нет `./apps/web/.next/`, проверьте Node.js 22, наличие dev-зависимостей после `npm ci`, root `./.env` и логи `next build`.
 
-Исправлено:
-
-- у обоих GitHub Artifact включён `include-hidden-files: true`;
-- в `path` явно исключены только реальные секреты `.env`, `.env.local`, `.env.*.local`, `node_modules/`, `.git/`; `.env.example`, `.next/**`, `.next/static/**` теперь попадают в artifact;
-- `lftp` получает `set ftp:list-options -a`;
-- вместо широких regex `--exclude .env` используются точные `--exclude-glob .env` и т.п., чтобы не вырезать `.env.example`;
-- package job и upload job проверяют `.next/trace`, `.next/static/`, `public/`, `.env.example` и собранный backend `dist/main.js`.
-
-После перезапуска в корне frontend FTP-аккаунта должны появиться не только `public/`, но и `./apps/web/.next/` целиком, `./apps/web/next.config.mjs`, `.env.example`, `ENV-SETUP.txt`, `package.json` и остальные файлы payload. Старые неполные файлы можно удалить вручную: `mirror -R` без `--delete` не чистит лишнее.
+`include-hidden-files: true` и `set ftp:list-options -a` всё равно нужны для `.env.example`, `.nvmrc` и других dot-файлов: `actions/upload-artifact@v4` по умолчанию исключает hidden files [2](https://github.com/actions/upload-artifact/blob/v4/README.md), а часть FTP-серверов скрывает их в листинге [5](https://linux.die.net/man/1/lftp). Старые `.next` или `./artifact/` на FTP удалите вручную: `mirror -R` без `--delete` не чистит лишнее.
 
 ## Ограничения
 
