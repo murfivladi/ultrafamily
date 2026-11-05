@@ -139,6 +139,16 @@ if [[ "$FTP_TARGET" == 'backend' ]] && grep -Eq '^API_PORT=3001\s*$' "$MERGED"; 
   echo 'WARNING: backend .env still uses API_PORT=3001; edit the existing line to API_PORT=25031.' >&2
 fi
 
+# The frontend payload is a Next.js standalone build: its node_modules is a
+# traced runtime subset and MUST be uploaded. The backend payload installs
+# dependencies on the server, so its node_modules stays excluded.
+# Keep the cache exclusion specific (.next/cache): a bare `cache/` glob would
+# also drop node_modules/webpack/lib/cache from the standalone frontend.
+MIRROR_EXCLUDES='--exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob .git/ --exclude-glob .next/cache/ --exclude-glob *.pack'
+if [[ "$FTP_TARGET" == 'backend' ]]; then
+  MIRROR_EXCLUDES+=' --exclude-glob node_modules/'
+fi
+
 # lftp's mirror with an explicit source directory can append that directory
 # name to the remote target. Instead, enter the payload with lcd and call
 # mirror -R without source/target: current local dir -> current remote dir.
@@ -148,7 +158,7 @@ echo "Uploading contents of $LOCAL_DIR_ABS into FTP root ./ ..."
   printf '%s\n' \
     'cd ./' \
     "lcd \"$LOCAL_DIR_ABS\"" \
-    'mirror -R --no-perms --no-umask --parallel=3 --verbose --exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob node_modules/ --exclude-glob .git/ --exclude-glob cache/ --exclude-glob .next/cache/ --exclude-glob *.pack' \
+    "mirror -R --no-perms --no-umask --parallel=3 --verbose $MIRROR_EXCLUDES" \
     "put \"$MERGED\" -o .env" \
     'bye'
 } | run_lftp

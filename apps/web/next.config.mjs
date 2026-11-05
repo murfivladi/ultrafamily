@@ -37,6 +37,12 @@ if (configuredApiOrigin === 'https://api.family.vladislavb.qzz.io') {
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Ship the frontend as a self-contained server (server.js + traced minimal
+  // node_modules). The hosting then runs plain `node`, so no `npm ci` happens
+  // on the server at all — a full install OOMs there (see docs/DEPLOYMENT.md).
+  // The tracing root is the monorepo root so workspace deps are included.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(cwd, '..', '..'),
   // CalDAV clients use collection URLs with a trailing slash; preserve PROPFIND
   // methods and bodies instead of answering with Next.js' 308 redirect.
   skipTrailingSlashRedirect: true,

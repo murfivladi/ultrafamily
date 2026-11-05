@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build backend and frontend in GitHub Actions; upload two prebuilt FTP payloads.
-# Both keep root manifests so `npm ci --omit=dev` works on the server.
+# Both keep root manifests so a workspace-scoped `npm ci --omit=dev
+# --workspace=@ufos/api|@ufos/web` works on the server without installing
+# the whole monorepo (a full install OOMs on low-memory hosting).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,21 +32,25 @@ echo "Building contracts, API and web application for FTP release $VERSION..."
 echo "Frontend internal API origin: $API_PROXY_ORIGIN"
 npm run build
 
-for target in "$BACKEND" "$FRONTEND"; do
-  mkdir -p "$target/packages/contracts" "$target/apps/api" "$target/apps/web"
-  cp package.json package-lock.json tsconfig.base.json .nvmrc .env.example README.md "$target/"
-  cp packages/contracts/package.json "$target/packages/contracts/"
-  cp -R packages/contracts/dist "$target/packages/contracts/"
-  cp apps/api/package.json "$target/apps/api/"
-  cp apps/web/package.json "$target/apps/web/"
-done
-
+# Backend payload: root manifests + compiled API. The server installs only
+# the API workspace (see FTP-NOTES.txt); a full install OOMs there.
+mkdir -p "$BACKEND/packages/contracts" "$BACKEND/apps/api" "$BACKEND/apps/web"
+cp package.json package-lock.json tsconfig.base.json .nvmrc .npmrc .env.example README.md "$BACKEND/"
+cp packages/contracts/package.json "$BACKEND/packages/contracts/"
+cp -R packages/contracts/dist "$BACKEND/packages/contracts/"
+cp apps/api/package.json "$BACKEND/apps/api/"
+cp apps/web/package.json "$BACKEND/apps/web/"
 cp -R apps/api/dist "$BACKEND/apps/api/"
-cp apps/web/next.config.mjs apps/web/postcss.config.mjs "$FRONTEND/apps/web/"
-cp -R apps/web/.next apps/web/public "$FRONTEND/apps/web/"
-# .next/cache is a webpack BUILD cache, not a next start runtime dependency.
-# It can contain multi-hundred-MB .pack files; keep it out of FTP artifacts.
-rm -rf "$FRONTEND/apps/web/.next/cache"
+
+# Frontend payload: Next.js standalone output (server.js + traced minimal
+# node_modules, ~120 MB). The server runs plain `node` and never runs npm,
+# so install-time OOM on low-memory hosting is impossible. Static assets and
+# public/ are not part of standalone output and must sit next to server.js.
+mkdir -p "$FRONTEND/apps/web/.next"
+cp -R apps/web/.next/standalone/. "$FRONTEND/"
+cp -R apps/web/.next/static "$FRONTEND/apps/web/.next/static"
+cp -R apps/web/public "$FRONTEND/apps/web/public"
+cp .nvmrc .env.example README.md "$FRONTEND/"
 
 COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 for pair in "backend:$BACKEND" "frontend:$FRONTEND"; do
@@ -72,7 +78,12 @@ account root (./). No artifact/ or payload/ folder is created.
 
 Backend is already compiled in GitHub Actions. Do not run next build here.
 
-1. At the release root run: npm ci --omit=dev
+1. At the release root install ONLY the API workspace:
+     npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
+   Do NOT run a bare `npm ci --omit=dev` here: it installs every workspace
+   (including Next.js/React for the frontend) and peaks at ~0.8 GB RAM,
+   which gets the process OOM-killed on 1-2 GB hosting. The scoped install
+   above peaks at ~0.25 GB and is enough for the API.
 2. Start the API on API_PORT=25031: npm run start:prod -w @ufos/api
 3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
@@ -86,16 +97,19 @@ Ultra Family OS — frontend FTP payload
 The workflow uploads the CONTENTS of this directory into the frontend FTP
 account root (./). No artifact/ or payload/ folder is created.
 
-Frontend is already compiled in GitHub Actions: apps/web/.next is included.
-The .next/cache webpack build cache and *.pack files are deliberately
-excluded: they are not needed by `next start` and can be very large.
+This is a Next.js standalone build: apps/web/server.js plus a traced,
+minimal node_modules. It is ready to run — do NOT run `npm ci`, `npm
+install` or any build here. Installing Next.js on the server OOM-kills
+low-memory hosting; that is exactly what this layout avoids.
 
-1. At the release root run: npm ci --omit=dev
-2. Start the web server: npm run start -w @ufos/web
-   It listens on WEB_PORT=26287 by default.
-3. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
+1. Start the web server from the release root:
+     PORT=26287 HOSTNAME=0.0.0.0 node apps/web/server.js
+   In a server admin panel, use that as the start command (or set PORT /
+   HOSTNAME as process environment variables and run
+   `node apps/web/server.js`).
+2. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
-4. Browser /api and /caldav requests are rewritten to
+3. Browser /api and /caldav requests are rewritten to
    http://127.0.0.1:25031 at build time.
    The public address https://api.family.vladislavb.qzz.io is documentation/reverse-proxy only.
 EOF
@@ -136,7 +150,7 @@ cat > "$FRONTEND/ENV-SETUP.txt" <<'EOF'
 Frontend .env — edit ./.env in the frontend FTP root
 
 The workflow already added these generated keys; do not duplicate them:
-  NODE_ENV, APP_VERSION, WEB_PORT=26287, NEXT_PUBLIC_DEMO_PASSWORD,
+  NODE_ENV, APP_VERSION, PORT=26287, WEB_PORT=26287, NEXT_PUBLIC_DEMO_PASSWORD,
   API_PROXY_ORIGIN=http://127.0.0.1:25031,
   APP_ORIGIN if the GitHub variable exists.
 
@@ -144,22 +158,24 @@ APP_ORIGIN was already set by you in ./.env. It is NOT overwritten.
 If the GitHub Variable APP_ORIGIN is set but .env still has an old value,
 the .env value wins. Edit the existing line, do not add a duplicate key.
 
-The frontend .next build produced in Actions already targets
+The standalone frontend build produced in Actions already targets
 http://127.0.0.1:25031 for /api and /caldav rewrites. Do NOT put
 https://api.family.vladislavb.qzz.io into API_PROXY_ORIGIN: that external HTTPS request failed
 with EPROTO / SSL alert number 40.
 
-If the backend port changes, edit the existing API_PROXY_ORIGIN line in
-./.env and rerun the FTP workflow to rebuild .next. The workflow merges
-only missing .env keys and will not overwrite an old external value.
+If the backend port changes, rerun the FTP workflow to rebuild the
+frontend: API_PROXY_ORIGIN is baked into the build, the .env value alone
+does not change it. The workflow merges only missing .env keys and will
+not overwrite an old external value.
 
-Start command:
+Start command (no npm install/build is needed or wanted here):
 
-  npm run start -w @ufos/web
+  PORT=26287 HOSTNAME=0.0.0.0 node apps/web/server.js
 
-It uses WEB_PORT=26287 (or an exported WEB_PORT override). No build is
-needed on the hosting. After editing .env, restart the web process.
+The standalone server reads PORT/HOSTNAME from the process environment,
+not from ./.env; set them in the admin panel if it does not import .env.
+After changing the port, restart the web process.
 EOF
 
 echo "FTP backend payload (prebuilt API): $BACKEND"
-echo "FTP frontend payload (prebuilt Next.js, port 26287): $FRONTEND"
+echo "FTP frontend payload (prebuilt Next.js standalone, port 26287): $FRONTEND"

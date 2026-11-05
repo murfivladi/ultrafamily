@@ -166,11 +166,13 @@ API_PROXY_ORIGIN=http://127.0.0.1:25031
 Через админку сервера/хостинга, в корне каждого FTP-аккаунта:
 
 ```bash
-npm ci --omit=dev
-# backend
+# backend-аккаунт: только API-workspace (голая npm ci --omit=dev ставит весь
+# монорепозиторий и падает с OOM на хостинге с 1-2 ГБ RAM, см. DEPLOYMENT.md)
+npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace=@ufos/api --include-workspace-root=false
 npm run start:prod -w @ufos/api
-# frontend, порт 26287
-npm run start -w @ufos/web
+
+# frontend-аккаунт: npm не нужен — payload это Next.js standalone, порт 26287
+PORT=26287 HOSTNAME=0.0.0.0 node apps/web/server.js
 ```
 
 Frontend уже собран в Actions, поэтому `npm run build -w @ufos/web` на хостинге не запускайте. `API_PROXY_ORIGIN` зашит в `.next` во время сборки; если внутренний адрес backend изменится, отредактируйте существующую строку в `.env` и перезапустите `ftp.yml`, чтобы пересобрать frontend.
