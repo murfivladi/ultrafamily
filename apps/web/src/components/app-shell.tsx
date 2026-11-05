@@ -114,11 +114,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         module: 'public_site',
       },
     ];
+    const stageCItems: NavItem[] = [
+      {
+        id: 'messenger',
+        href: '/messages',
+        icon: 'MessagesSquare',
+        label: t('modules.messenger'),
+        module: 'messenger',
+      },
+      { id: 'feed', href: '/feed', icon: 'Newspaper', label: t('modules.feed'), module: 'feed' },
+      {
+        id: 'decisions',
+        href: '/decisions',
+        icon: 'Vote',
+        label: t('modules.decisions'),
+        module: 'decisions',
+      },
+      {
+        id: 'documents',
+        href: '/documents',
+        icon: 'FileText',
+        label: t('modules.documents'),
+        module: 'documents',
+      },
+      { id: 'calls', href: '/calls', icon: 'Video', label: t('modules.calls'), module: 'calls' },
+    ];
     const permissions = new Set(snapshot?.permissions ?? []);
-    const allowedStageB = stageBItems.filter((item) => permissions.has(`${item.module}:read`));
+    const allowedStageB = [...stageBItems, ...stageCItems].filter((item) =>
+      permissions.has(`${item.module}:read`),
+    );
     const simplified = preferences.simplifiedUi || snapshot?.user.isChild;
     const visibleStageB = simplified
-      ? allowedStageB.filter((item) => ['calendar', 'tasks', 'shopping'].includes(item.id))
+      ? allowedStageB.filter((item) =>
+          ['calendar', 'tasks', 'shopping', 'messenger', 'feed'].includes(item.id),
+        )
       : allowedStageB;
     const items = [...coreItems, ...visibleStageB];
     if (snapshot?.platformRole && !simplified) {
@@ -126,9 +155,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     return simplified
       ? items.filter((item) =>
-          ['dashboard', 'catalog', 'spaces', 'settings', 'calendar', 'tasks', 'shopping'].includes(
-            item.id,
-          ),
+          [
+            'dashboard',
+            'catalog',
+            'spaces',
+            'settings',
+            'calendar',
+            'tasks',
+            'shopping',
+            'messenger',
+            'feed',
+          ].includes(item.id),
         )
       : items;
   }, [

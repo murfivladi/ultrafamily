@@ -1,6 +1,6 @@
 # Дорожная карта этапов B–H
 
-Соответствует разделу 34 ТЗ. Этапы могут частично выполняться параллельно, но стабильность основы важнее скорости. Этап B реализован как внутренняя техническая сборка; этапы C–H ниже остаются планом. Ни один этап не является публичной версией 1.0.
+Соответствует разделу 34 ТЗ. Этапы могут частично выполняться параллельно, но стабильность основы важнее скорости. Этапы B и C реализованы как внутренние технические сборки; этапы D–H ниже остаются планом. Ни один этап не является публичной версией 1.0.
 
 ## B. Организационное ядро — реализовано во внутренней сборке
 
@@ -13,13 +13,15 @@
 
 Ограничения текущей реализации: вместо Redis/BullMQ используется ограниченная таблица доставки; конфликты CalDAV разрешаются ETag/версиями; SMTP/Telegram/Web Push-адаптеры не подключены; realtime сделан через SSE в одном API-процессе. Подробности — [STAGE-B.md](STAGE-B.md).
 
-## C. Общение и совместная работа
+## C. Общение и совместная работа — реализовано во внутренней сборке
 
-- Messenger: chats, groups, channels, threads, reactions, mentions, delivery/read state, moderation.
-- Family feed, polls, date selection, wishlists, proposals, quorum and decision history.
-- WebSocket gateway, presence, collaborative cursors, reconnect and idempotency keys.
-- Documents/notes/tables/presentations via an integrable office editor, Yjs, versions and comments.
-- WebRTC signaling, STUN/TURN, audio/video rooms, screen share, reconnect diagnostics.
+- Messenger: чаты, группы, каналы, ветки, реакции, упоминания, доставка/прочтение, модерация.
+- Семейная лента, опросы, выбор даты, вишлисты, предложения, кворум и история решений.
+- WebSocket-gateway рядом с SSE: presence, общие курсоры, переподключение и защита от повторных операций.
+- Документы и заметки на Yjs с версиями, восстановлением, комментариями и общими курсорами.
+- WebRTC: сигналинг через WebSocket, STUN/TURN из окружения, комнаты audio/video, демонстрация экрана, диагностика и переподключение.
+
+Ограничения текущей реализации: офисный редактор таблиц/презентаций и предпросмотр PDF/office не сделаны; Yjs-комнаты живут в памяти одного API-процесса; TURN-сервер не развёрнут (диагностика сообщает об этом); реальное двустороннее медиа и нагрузочное тестирование signaling требуют отдельного сетевого стенда. Подробности — [STAGE-C.md](STAGE-C.md).
 
 WebRTC is a separate high-risk workstream with dedicated network/load testing. Media must never be routed through ordinary HTTP/Cloudflare Origin Rules.
 

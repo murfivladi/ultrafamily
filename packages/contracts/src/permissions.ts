@@ -133,6 +133,9 @@ const childMap: CapabilityMap = {
     coreMember,
   ),
   ...capabilities(['feed', 'documents', 'journal', 'memories', 'school'], coreMember),
+  // Children talk to their family in chats they were added to and take part in
+  // family decisions, but they cannot moderate, publish or create channels.
+  ...capabilities(['messenger', 'decisions'], coreRead),
   settings: coreMember,
   dashboard: coreRead,
   catalog: coreRead,

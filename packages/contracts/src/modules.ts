@@ -80,6 +80,12 @@ const foundationModules = new Set<ModuleId>([
   'tasks',
   'notifications',
   'shopping',
+  // Stage C — communication and collaboration.
+  'messenger',
+  'feed',
+  'decisions',
+  'documents',
+  'calls',
 ]);
 
 const sensitiveModules = new Set<ModuleId>([

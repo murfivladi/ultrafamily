@@ -67,6 +67,24 @@ npm run start -w @ufos/web
 
 Frontend слушает порт `26287`; backend слушает `API_PORT=25031`. Frontend уже собран, поэтому `npm run build -w @ufos/web` на хостинге не нужен. Next.js направляет `/api` и `/caldav` на внутренний `http://127.0.0.1:25031`; `https://api.family.vladislavb.qzz.io` остаётся публичным адресом reverse proxy. При необходимости запретите буферизацию SSE и сохраните завершающий `/` для CalDAV-запросов. Миграции SQL применяет API при старте.
 
+### Realtime `/ws` и WebRTC
+
+Stage C добавляет второй протокол на том же frontend-хосте:
+
+- `/api/*` — обычные HTTP-запросы (как раньше);
+- `/ws` — WebSocket-соединение к NestJS (`CollaborationGateway`).
+
+HTTP-реврайт Next.js не умеет upgrade соединения, поэтому нужен один из двух вариантов:
+
+1. **Отдельный прокси `scripts/ws-proxy.mjs`** (`npm run start:ws`). Он слушает `WS_PUBLIC_PORT` (по умолчанию `26288`), передаёт обычный HTTP в Next.js и `Upgrade: websocket` на `/ws` — в API (`WS_API_HOST`/`WS_API_PORT`). В dev/preview режиме этот прокси запускается вместе с `npm run dev`.
+2. **Правило в reverse proxy** (предпочтительно в production): `location /ws { proxy_pass http://127.0.0.1:25031; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; proxy_set_header Host $host; proxy_read_timeout 3600s; }` и проксирование остального на Next.js.
+
+Обязательно: `APP_ORIGIN` должен содержать публичный origin (`https://family.example.org`), иначе gateway принимает WS без проверки Origin; при заданном `APP_ORIGIN` соединение из другого origin отклоняется. Прокси не должен буферизовать ответы на `/ws`.
+
+**Медиа WebRTC не идёт через этот прокси и через обычный HTTP-деплой.** Аудио/видео использует SRTP/UDP напрямую между браузерами или через TURN. Для TURN откройте UDP `3478` (и `5349` для TURNS), задайте `WEBRTC_TURN_URLS`, `WEBRTC_TURN_USERNAME`, `WEBRTC_TURN_CREDENTIAL` на API; правило Cloudflare Origin Rules не должно применяться к медиатрафику. Если TURN не настроен, `GET /api/calls/rooms/:id/diagnostics` вернёт `turnConfigured: false`, и интерфейс покажет предупреждение.
+
+`scripts/smoke.sh` проверяет, что `/ws` на `API_URL` отвечает на upgrade (101/401/403), а не 404.
+
 ## Обновление
 
 1. Убедитесь, что CI зелёный.
