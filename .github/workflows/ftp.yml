@@ -81,7 +81,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build FTP payloads
+      - name: Build backend and stage frontend sources
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: npm run release:ftp -- "$VERSION"
@@ -92,18 +92,27 @@ jobs:
           for target in backend frontend; do
             root="releases/ftp/$target"
             test -f "$root/.env.example"
+            test -f "$root/.nvmrc"
             test -f "$root/RELEASE.json"
             test -f "$root/FTP-NOTES.txt"
             test -f "$root/ENV-SETUP.txt"
             test -f "$root/package.json"
             test -f "$root/package-lock.json"
+            test -f "$root/packages/contracts/dist/index.js"
+            test -f "$root/packages/contracts/src/index.ts"
+            test -f "$root/apps/web/package.json"
           done
           test -f releases/ftp/backend/apps/api/dist/main.js
-          test -f releases/ftp/frontend/apps/web/.next/trace
-          test -d releases/ftp/frontend/apps/web/.next/static
+          test ! -e releases/ftp/backend/apps/web/.next
+          test -f releases/ftp/frontend/HOSTING-BUILD.txt
+          test -f releases/ftp/frontend/apps/web/next.config.mjs
+          test -f releases/ftp/frontend/apps/web/postcss.config.mjs
+          test -f releases/ftp/frontend/apps/web/tsconfig.json
+          test -f releases/ftp/frontend/apps/web/next-env.d.ts
+          test -d releases/ftp/frontend/apps/web/src
           test -d releases/ftp/frontend/apps/web/public
-          echo 'Frontend .next root:'
-          find releases/ftp/frontend/apps/web/.next -maxdepth 1 -printf '%f\n' | sort
+          test ! -e releases/ftp/frontend/apps/web/.next
+          echo 'Frontend source payload is ready for hosting build'
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
@@ -133,6 +142,7 @@ jobs:
             !releases/ftp/frontend/**/.env.*.local
             !releases/ftp/frontend/**/node_modules/
             !releases/ftp/frontend/**/.git/
+            !releases/ftp/frontend/**/.next/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
@@ -197,9 +207,14 @@ jobs:
           test -f "$LOCAL_DIR/RELEASE.json"
           test -f "$LOCAL_DIR/.env.example"
           if [[ "$FTP_TARGET" == 'frontend' ]]; then
-            test -f "$LOCAL_DIR/apps/web/.next/trace"
-            test -d "$LOCAL_DIR/apps/web/.next/static"
+            test -f "$LOCAL_DIR/HOSTING-BUILD.txt"
+            test -f "$LOCAL_DIR/apps/web/next.config.mjs"
+            test -f "$LOCAL_DIR/apps/web/postcss.config.mjs"
+            test -f "$LOCAL_DIR/apps/web/tsconfig.json"
+            test -f "$LOCAL_DIR/apps/web/next-env.d.ts"
+            test -d "$LOCAL_DIR/apps/web/src"
             test -d "$LOCAL_DIR/apps/web/public"
+            test ! -e "$LOCAL_DIR/apps/web/.next"
           else
             test -f "$LOCAL_DIR/apps/api/dist/main.js"
           fi
@@ -269,9 +284,14 @@ jobs:
           test -f "$LOCAL_DIR/RELEASE.json"
           test -f "$LOCAL_DIR/.env.example"
           if [[ "$FTP_TARGET" == 'frontend' ]]; then
-            test -f "$LOCAL_DIR/apps/web/.next/trace"
-            test -d "$LOCAL_DIR/apps/web/.next/static"
+            test -f "$LOCAL_DIR/HOSTING-BUILD.txt"
+            test -f "$LOCAL_DIR/apps/web/next.config.mjs"
+            test -f "$LOCAL_DIR/apps/web/postcss.config.mjs"
+            test -f "$LOCAL_DIR/apps/web/tsconfig.json"
+            test -f "$LOCAL_DIR/apps/web/next-env.d.ts"
+            test -d "$LOCAL_DIR/apps/web/src"
             test -d "$LOCAL_DIR/apps/web/public"
+            test ! -e "$LOCAL_DIR/apps/web/.next"
           else
             test -f "$LOCAL_DIR/apps/api/dist/main.js"
           fi

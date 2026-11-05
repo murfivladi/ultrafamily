@@ -95,7 +95,7 @@ EOF
   fi
 }
 
-# Hidden paths matter here: .next/ and .env.example are part of the payload.
+# Hidden paths still matter here: .env.example and .nvmrc are part of the payload.
 # ftp:list-options -a makes lftp see dot-directories on restricted FTP servers.
 # Shared-hosting FTP often disables SITE/MFF entirely. Keep server-side
 # default permissions and timestamps instead of trying chmod over FTP.
