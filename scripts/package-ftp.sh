@@ -52,6 +52,16 @@ cp -R apps/web/.next/static "$FRONTEND/apps/web/.next/static"
 cp -R apps/web/public "$FRONTEND/apps/web/public"
 cp .nvmrc .env.example README.md "$FRONTEND/"
 
+# Next's file tracing conservatively pulls in build-time tooling (webpack,
+# terser, esbuild, TypeScript) and sharp's native image binaries. The
+# production server never loads them: the app does not use next/image and
+# next.config is plain .mjs. They were ~1700 of ~3500 files and ~80 MB, and
+# every file is a separate FTPS transfer. Smoke-tested: all routes render.
+for pkg in typescript webpack terser uglify-js minimizer-webpack-plugin \
+  caniuse-lite @esbuild sharp @img; do
+  rm -rf "$FRONTEND/node_modules/$pkg"
+done
+
 COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 for pair in "backend:$BACKEND" "frontend:$FRONTEND"; do
   target_name="${pair%%:*}"

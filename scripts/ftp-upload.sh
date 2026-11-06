@@ -14,6 +14,11 @@ set -euo pipefail
 
 FTP_VERIFY_CERT="${FTP_VERIFY_CERT:-true}"
 FTP_TLS_MODE="${FTP_TLS_MODE:-explicit}"
+FTP_PARALLEL="${FTP_PARALLEL:-8}"
+if [[ ! "$FTP_PARALLEL" =~ ^[0-9]+$ ]] || (( FTP_PARALLEL < 1 )); then
+  echo 'FTP_PARALLEL must be a positive integer.' >&2
+  exit 1
+fi
 if [[ "$FTP_TARGET" != 'backend' && "$FTP_TARGET" != 'frontend' ]]; then
   echo 'FTP_TARGET must be backend or frontend.' >&2
   exit 1
@@ -69,6 +74,9 @@ EXISTING="$TMP/.env.existing"
 GENERATED="$TMP/.env.generated"
 MERGED="$TMP/.env.merged"
 LISTING="$TMP/listing.txt"
+MANIFEST_NAME='.ufos-deploy-manifest'
+OLD_MANIFEST="$TMP/manifest.old"
+NEW_MANIFEST="$TMP/manifest.new"
 
 node "$ROOT/scripts/ftp-env.mjs" > "$GENERATED"
 chmod 600 "$GENERATED"
@@ -129,6 +137,17 @@ else
   rm -f "$EXISTING"
 fi
 
+if [[ "${FTP_FULL_UPLOAD:-false}" != 'true' ]] && awk '{print $NF}' "$LISTING" | grep -Fxq "$MANIFEST_NAME"; then
+  echo 'Remote deploy manifest found; downloading it for an incremental upload...'
+  if { lftp_common; printf '%s\n' "get -O \"$TMP\" $MANIFEST_NAME" 'bye'; } | run_lftp \
+    && [[ -f "$TMP/$MANIFEST_NAME" ]]; then
+    mv "$TMP/$MANIFEST_NAME" "$OLD_MANIFEST"
+  else
+    echo 'WARNING: could not download the deploy manifest; falling back to a full upload.' >&2
+    rm -f "$OLD_MANIFEST"
+  fi
+fi
+
 ENV_EXISTING="$EXISTING" ENV_GENERATED="$GENERATED" ENV_MERGED="$MERGED" \
   node "$ROOT/scripts/merge-env.mjs"
 chmod 600 "$MERGED"
@@ -146,21 +165,78 @@ fi
 # also drop node_modules/webpack/lib/cache from the standalone frontend.
 MIRROR_EXCLUDES='--exclude-glob .env --exclude-glob .env.local --exclude-glob .env.*.local --exclude-glob .git/ --exclude-glob .next/cache/ --exclude-glob *.pack'
 if [[ "$FTP_TARGET" == 'backend' ]]; then
-  MIRROR_EXCLUDES+=' --exclude-glob node_modules/'
+  MIRROR_EXCLUDES+=" --exclude-glob node_modules/"
+fi
+MIRROR_EXCLUDES+=" --exclude-glob $MANIFEST_NAME"
+
+# Incremental upload. Every file is a separate FTPS data connection with its
+# own TLS handshake, so re-sending ~2000 unchanged node_modules files took
+# longer than the job timeout. A manifest of SHA-256 hashes is stored in the
+# FTP root; the next deploy downloads it and uploads only files whose content
+# changed. The manifest is written LAST, so an interrupted upload leaves the
+# previous manifest and the next run re-sends everything that was pending.
+# FTP_FULL_UPLOAD=true (workflow input) ignores the manifest and re-sends all.
+build_manifest() {
+  local find_args=(. -type d \( -name .git -o -path '*/.next/cache' )
+  if [[ "$FTP_TARGET" == 'backend' ]]; then
+    find_args+=(-o -name node_modules)
+  fi
+  find_args+=(\) -prune -o -type f
+    ! -name .env ! -name .env.local ! -name '.env.*.local' ! -name '*.pack'
+    ! -path "./$MANIFEST_NAME" -print0)
+  (cd "$LOCAL_DIR_ABS" && find "${find_args[@]}" | LC_ALL=C sort -z | xargs -0 -r sha256sum --)
+}
+build_manifest > "$NEW_MANIFEST"
+TOTAL_FILES="$(wc -l < "$NEW_MANIFEST" | tr -d ' ')"
+
+UPLOAD_MODE=full
+if [[ "${FTP_FULL_UPLOAD:-false}" == 'true' ]]; then
+  echo 'FTP_FULL_UPLOAD=true: ignoring the remote manifest, uploading every file.'
+elif [[ -s "$OLD_MANIFEST" ]]; then
+  UPLOAD_MODE=incremental
+else
+  echo 'No remote deploy manifest found: first deploy uploads every file.'
+fi
+
+UPLOAD_SOURCE="$LOCAL_DIR_ABS"
+MIRROR_FLAGS=''
+if [[ "$UPLOAD_MODE" == 'incremental' ]]; then
+  CHANGED="$TMP/changed.txt"
+  # Lines are "<sha256>  ./path"; a line absent from the old manifest means
+  # a new or modified file.
+  LC_ALL=C awk 'NR==FNR { seen[$0] = 1; next } !($0 in seen) { print substr($0, 67) }' \
+    "$OLD_MANIFEST" "$NEW_MANIFEST" > "$CHANGED"
+  CHANGED_COUNT="$(wc -l < "$CHANGED" | tr -d ' ')"
+  echo "Incremental upload: $CHANGED_COUNT of $TOTAL_FILES files changed since the last deploy."
+  STAGE="$TMP/stage"
+  mkdir -p "$STAGE"
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    mkdir -p "$STAGE/$(dirname "$rel")"
+    cp -p "$LOCAL_DIR_ABS/$rel" "$STAGE/$rel"
+  done < "$CHANGED"
+  UPLOAD_SOURCE="$STAGE"
+  # Content is known to differ: do not let size/mtime comparison skip it.
+  MIRROR_FLAGS='--transfer-all'
+else
+  echo "Full upload: $TOTAL_FILES files."
 fi
 
 # lftp's mirror with an explicit source directory can append that directory
 # name to the remote target. Instead, enter the payload with lcd and call
 # mirror -R without source/target: current local dir -> current remote dir.
-echo "Uploading contents of $LOCAL_DIR_ABS into FTP root ./ ..."
+# Remote-only files are never deleted (no --delete), same as before.
+echo "Uploading contents of $UPLOAD_SOURCE into FTP root ./ ..."
 {
   lftp_common
+  printf '%s\n' 'cd ./' "lcd \"$UPLOAD_SOURCE\""
+  if [[ "$UPLOAD_MODE" == 'full' || -n "$(find "$UPLOAD_SOURCE" -type f -print -quit)" ]]; then
+    printf '%s\n' "mirror -R --no-perms --no-umask --parallel=$FTP_PARALLEL $MIRROR_FLAGS --verbose $MIRROR_EXCLUDES"
+  fi
   printf '%s\n' \
-    'cd ./' \
-    "lcd \"$LOCAL_DIR_ABS\"" \
-    "mirror -R --no-perms --no-umask --parallel=3 --verbose $MIRROR_EXCLUDES" \
     "put \"$MERGED\" -o .env" \
+    "put \"$NEW_MANIFEST\" -o $MANIFEST_NAME" \
     'bye'
 } | run_lftp
 
-echo "FTP upload completed for $FTP_TARGET release $RELEASE_VERSION."
+echo "FTP upload completed for $FTP_TARGET release $RELEASE_VERSION ($UPLOAD_MODE)."
