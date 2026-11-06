@@ -88,7 +88,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('settings.title')}
         description={t('settings.subtitle')}
         action={

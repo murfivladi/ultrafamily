@@ -227,7 +227,7 @@ export default function CalendarPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('modules.calendar')}
         description={t('stageB.calendar.subtitle')}
         action={

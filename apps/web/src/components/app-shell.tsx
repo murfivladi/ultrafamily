@@ -380,8 +380,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mt-8 border-t border-[var(--border)] pt-5 text-xs leading-5 text-[var(--muted)]">
-          <p className="font-semibold">{t('stageB.badge')}</p>
+          <p className="font-semibold">{t('stage.current')}</p>
           <p className="mt-1">{t('common.private')}</p>
+          <p className="uf-mono mt-1 opacity-70" title="Frontend build">
+            {process.env.NEXT_PUBLIC_APP_VERSION || 'dev'}
+          </p>
         </div>
       </aside>
 
@@ -417,7 +420,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="hidden items-center gap-2 md:flex">
             <Badge tone="accent">
               <Lucide.Layers3 className="h-3.5 w-3.5" />
-              {t('stageB.badge')}
+              {t('stage.current')}
             </Badge>
           </div>
 

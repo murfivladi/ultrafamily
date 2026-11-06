@@ -210,7 +210,7 @@ export default function ShoppingPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('modules.shopping')}
         description={t('stageB.shopping.subtitle')}
         action={

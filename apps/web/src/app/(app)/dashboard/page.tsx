@@ -394,7 +394,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('dashboard.hello', { name: snapshot?.user.displayName ?? '' })}
         description={t('dashboard.subtitle')}
         action={
