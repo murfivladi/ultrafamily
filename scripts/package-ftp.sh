@@ -62,6 +62,31 @@ for pkg in typescript webpack terser uglify-js minimizer-webpack-plugin \
   rm -rf "$FRONTEND/node_modules/$pkg"
 done
 
+# Hosting panels start the app with `npm start` (in the root or in apps/web).
+# The source scripts call `next start`, but standalone output ships no
+# `next` CLI (no node_modules/.bin) -> "sh: next: not found". Point every
+# start script of the frontend payload at the standalone server.js instead.
+# server.js reads PORT/HOSTNAME; WEB_PORT is honoured for compatibility.
+node - "$FRONTEND" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+const serve = (file) =>
+  `PORT=\${PORT:-\${WEB_PORT:-26287}} HOSTNAME=0.0.0.0 node ${file}`;
+const patch = (rel, scripts) => {
+  const file = path.join(root, rel);
+  const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+  pkg.scripts = scripts;
+  delete pkg.devDependencies;
+  fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+};
+patch('package.json', {
+  start: serve('apps/web/server.js'),
+  'start:web': serve('apps/web/server.js'),
+});
+patch('apps/web/package.json', { start: serve('server.js') });
+NODE
+
 COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 for pair in "backend:$BACKEND" "frontend:$FRONTEND"; do
   target_name="${pair%%:*}"
@@ -117,6 +142,8 @@ low-memory hosting; that is exactly what this layout avoids.
    In a server admin panel, use that as the start command (or set PORT /
    HOSTNAME as process environment variables and run
    `node apps/web/server.js`).
+   `npm start` (in the root or in apps/web) also works: in this payload it
+   runs server.js, not `next start` — there is no `next` CLI here.
 2. The canonical .env is ./.env in this root. See ENV-SETUP.txt.
    APP_ORIGIN already present in your .env is preserved by the workflow.
 3. Browser /api and /caldav requests are rewritten to
