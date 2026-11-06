@@ -9,4 +9,11 @@ Disallow: /spaces
 Disallow: /sessions
 Disallow: /admin
 Disallow: /login
+Disallow: /share/
+Disallow: /files
+Disallow: /photos
+Disallow: /search
+Disallow: /journal
+Disallow: /memories
+Disallow: /encyclopedia
 # No public sitemap or RSS feed is generated in Stage B.

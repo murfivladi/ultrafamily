@@ -116,6 +116,13 @@ Next.js (в том числе standalone `server.js` на frontend-хостин�
 
 `scripts/smoke.sh` проверяет, что `/ws` на `API_URL` отвечает на upgrade (101/401/403), а не 404.
 
+### Stage D: хранилище файлов
+
+- Каталог `STORAGE_DIR` должен быть на постоянном диске backend-аккаунта и **вне** FTP-payload (по умолчанию `apps/api/.data/storage`, в `.gitignore`). FTP-загрузка не удаляет файлы, но не кладите туда ничего из релиза.
+- Включите его в резервную копию (см. [BACKUP-RESTORE.md](BACKUP-RESTORE.md)); следите за `STORAGE_MIN_FREE_BYTES`.
+- WebDAV и загрузки идут через тот же Next.js rewrite `/api/*`; reverse proxy не должен ограничивать тело запроса меньше `STORAGE_CHUNK_BYTES` (4 МБ) и должен пропускать методы PROPFIND/MKCOL/MOVE/COPY/LOCK/UNLOCK/PROPPATCH.
+- Необязательные движки (`ANTIVIRUS_COMMAND`, `OCR_COMMAND`, `VIDEO_PROBE_COMMAND`) устанавливаются на backend-хост отдельно; без них система работает и честно показывает «не подключено».
+
 ## Обновление
 
 1. Убедитесь, что CI зелёный.

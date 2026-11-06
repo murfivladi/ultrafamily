@@ -45,7 +45,11 @@ pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges \
 echo "Restoring PostgreSQL..."
 pg_restore --dbname="$DATABASE_URL" --clean --if-exists --no-owner --no-privileges "$BUNDLE/database.dump"
 
-FILES_DIR="${FILES_DIR:-/var/lib/ufos/files}"
+# Stage D: binary files live in STORAGE_DIR (relative paths are resolved
+# against apps/api, where the API process runs). FILES_DIR overrides it.
+STORAGE_PATH="${STORAGE_DIR:-.data/storage}"
+[[ "$STORAGE_PATH" = /* ]] || STORAGE_PATH="$ROOT/apps/api/$STORAGE_PATH"
+FILES_DIR="${FILES_DIR:-$STORAGE_PATH}"
 if [[ -d "$FILES_DIR" ]]; then
   mv "$FILES_DIR" "${FILES_DIR}.pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
 fi

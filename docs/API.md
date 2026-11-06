@@ -125,3 +125,20 @@ Stage A, Stage B и Stage C не обещают стабильного публ�
 - Calls: `GET|POST /api/calls/rooms`, `GET /api/calls/rooms/:id`, `POST /api/calls/rooms/:id/join|leave|close|state`, `GET /api/calls/rooms/:id/signals`, `GET /api/calls/rooms/:id/diagnostics`, `GET /api/calls/ice-servers`.
 
 Детали, включая границы WebRTC и Yjs, — в [STAGE-C.md](STAGE-C.md).
+
+## Stage D endpoints
+
+Все маршруты (кроме публичных) требуют сессии, CSRF для изменяющих методов и `spaceId` в query или теле.
+
+- Files: `GET /api/files?folderId=`, `GET /api/files/usage`, `PUT /api/files/quota`, `GET|DELETE /api/files/trash`, `POST /api/files/trash/restore`, `GET /api/files/activity`, `GET /api/files/duplicates`, `POST /api/files/bulk`, `POST /api/files/folders`, `PATCH|DELETE /api/files/folders/:id`, `GET|PATCH|DELETE /api/files/:id`, `DELETE /api/files/:id/purge`, `GET /api/files/:id/versions`, `POST /api/files/:id/versions/restore`, `GET /api/files/:id/preview|archive`, `GET /api/files/:id/content?version=&download=1` (HTTP Range).
+- Uploads: `POST /api/files/uploads` → сессия; `PUT /api/files/uploads/:id/chunks/:index` (`application/octet-stream`, по порядку, повтор идемпотентен); `GET /api/files/uploads/:id` (возобновление); `POST /api/files/uploads/:id/complete` (`onConflict: version|rename|fail`); `DELETE /api/files/uploads/:id`.
+- Processing: `GET /api/files/processing`, `POST /api/files/processing/run`.
+- WebDAV tokens: `GET|POST /api/files/webdav/tokens`, `DELETE /api/files/webdav/tokens/:id`. Mount: `/api/webdav/:spaceId/…` (Basic, пароль = токен; OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK, PROPPATCH).
+- Photos: `GET /api/photos?albumId=&favorites=1&personId=&period=&q=`, `GET /api/photos/timeline|duplicates`, `GET|POST /api/photos/albums`, `PATCH|DELETE /api/photos/albums/:id`, `POST /api/photos/albums/:id/items`, `DELETE /api/photos/albums/:id/items/:fileId`, `GET|PATCH /api/photos/:fileId`, `GET|POST /api/photos/:fileId/comments`, `DELETE /api/photos/:fileId/comments/:commentId`, `POST /api/photos/:fileId/reactions|favorite|people`, `DELETE /api/photos/:fileId/people/:tagId`, `GET|POST /api/photos/faces`, `DELETE /api/photos/faces/data`, `GET|POST /api/photos/shares`, `DELETE /api/photos/shares/:id`.
+- Public shares (без сессии): `GET /api/public/shares/:token?grant=`, `POST /api/public/shares/:token/unlock`, `GET /api/public/shares/:token/items/:fileId?grant=`.
+- Search: `GET /api/search?q=&spaceId=<id>|all&modules=a,b&from=&to=&personId=`.
+- Journal: `GET|POST /api/journal`, `GET /api/journal/export`, `DELETE /api/journal/mine?confirm=DELETE`, `GET|PATCH|DELETE /api/journal/:id`, `GET /api/journal/:id/attachments`, `GET /api/journal/:id/attachments/:fileId/content`.
+- Memories: `GET /api/memories/timeline?year=`, `GET /api/memories/collections?date=YYYY-MM-DD`.
+- Encyclopedia: `GET /api/encyclopedia/people?q=`, `GET /api/encyclopedia/tree`, `POST /api/encyclopedia/people`, `GET|PATCH|DELETE /api/encyclopedia/people/:id`, `POST /api/encyclopedia/people/:id/publication|links`, `DELETE /api/encyclopedia/people/:id/links/:kind/:targetId`, `POST /api/encyclopedia/relations`, `DELETE /api/encyclopedia/relations/:id`. Публично: `GET /api/public/family-people`.
+
+Типы — `packages/contracts/src/stage-d.ts`; детали — [STAGE-D.md](STAGE-D.md).

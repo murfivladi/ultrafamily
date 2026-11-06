@@ -13,7 +13,11 @@ fi
 command -v pg_dump >/dev/null || { echo "pg_dump is required" >&2; exit 1; }
 
 BACKUP_DIR="${BACKUP_DIR:-$ROOT/backups}"
-FILES_DIR="${FILES_DIR:-/var/lib/ufos/files}"
+# Stage D: binary files live in STORAGE_DIR (relative paths are resolved
+# against apps/api, where the API process runs). FILES_DIR overrides it.
+STORAGE_PATH="${STORAGE_DIR:-.data/storage}"
+[[ "$STORAGE_PATH" = /* ]] || STORAGE_PATH="$ROOT/apps/api/$STORAGE_PATH"
+FILES_DIR="${FILES_DIR:-$STORAGE_PATH}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="ufos-${STAMP}"
 WORK="$(mktemp -d)"
@@ -40,7 +44,7 @@ cat > "$WORK/bundle/manifest.json" <<EOF
 {
   "product": "Ultra Family OS",
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "version": "${APP_VERSION:-0.1.0-stage-b}",
+  "version": "${APP_VERSION:-0.1.0-stage-d}",
   "databaseFormat": "pg_dump custom",
   "fileArchive": "files.tar.gz"
 }

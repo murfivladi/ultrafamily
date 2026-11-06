@@ -109,3 +109,15 @@ id, slug, language, title, excerpt, body, published_at, space_name
 - Realtime: `collaboration_presence`.
 
 Сообщения, голоса и реакции несут клиентские ключи идемпотентности; удаление сообщения оставляет версии для политики хранения; `decision_history` хранит итог, кворум и метаданные ничьей; `documents.content` — источник для гидрирования Yjs-комнаты, `document_versions` — снимки для восстановления.
+
+## Stage D: файлы и память семьи
+
+Миграция `006_stage_d.sql` (аддитивная, 21 таблица) и активация модулей `files`, `photos`, `search`, `journal`, `memories`, `encyclopedia` там, где владелец не менял переключатели.
+
+- Хранилище: `space_storage_settings` (квоты, срок корзины), `file_folders`, `files` (тип по содержимому, `visibility space|private`, `scan_status`, `ocr_status/ocr_text`, метаданные, теги, место, дата съёмки, `trash_batch`), `file_versions` (каждая версия — отдельный ключ хранилища), `file_upload_sessions`, `file_activity`, `webdav_tokens` (хеш токена).
+- Очередь: `media_jobs` (scan/metadata/ocr/video/faces, попытки, backoff).
+- Галерея: `photo_albums`, `photo_album_items`, `media_comments`, `media_reactions`, `media_favorites`, `media_people_tags`, `share_links` (хеш токена, scrypt-пароль, срок, отзыв, счётчик), `face_recognition_settings`, `face_embeddings`.
+- Энциклопедия: `family_people`, `family_relations` (parent направленная; spouse/sibling хранятся один раз), `family_person_links`.
+- Дневники: `journal_entries` (`private|family`, `diary|story`, вложения, события, люди).
+
+Бинарное содержимое хранится вне PostgreSQL в `STORAGE_DIR` по ключам `<spaceId>/<fileId>/v<N>-<random>`; имена файлов пользователей в путях не используются.

@@ -82,7 +82,6 @@ export const BLOCKED_EXTENSIONS = new Set([
   'zsh',
   'csh',
   'run',
-  'bin',
   'apk',
   'appimage',
   'deb',

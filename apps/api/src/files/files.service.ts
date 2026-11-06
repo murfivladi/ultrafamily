@@ -448,6 +448,14 @@ export class FilesService {
   ): Promise<UploadSession> {
     await this.access.assert(user.id, spaceId, input.module, 'create');
     if (input.folderId) await this.requireFolder(spaceId, input.folderId);
+    if (input.module === 'photos' && !input.folderId && !input.targetFileId) {
+      // Gallery uploads land in Gallery/YYYY-MM instead of cluttering the root.
+      const month = new Date().toISOString().slice(0, 7);
+      input = {
+        ...input,
+        folderId: await this.ensureFolderPath(user, spaceId, ['Галерея', month], 'photos'),
+      };
+    }
     if (input.targetFileId) {
       const target = await this.requireFile(spaceId, input.targetFileId);
       await this.assertFileAccess(user, spaceId, target, 'update');

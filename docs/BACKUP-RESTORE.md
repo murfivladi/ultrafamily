@@ -96,3 +96,7 @@ A backup that has never been restored is not a backup.
 Резервная копия PostgreSQL автоматически включает все таблицы организационного ядра: календари, события, задачи, уведомления, очереди доставки, покупки, историю, версии публикаций и `realtime_events`. Дополнительных файловых томов Stage B не создаёт.
 
 После восстановления проверьте `/api/health`, `/api/dashboard`, `/api/calendar/calendars`, `/api/tasks/board`, `/api/notifications`, `/api/shopping/lists`, `/api/publishing` и `/api/admin/audit/verify`. Миграции применяются автоматически при старте API, но восстановление поверх несовместимой версии схемы должно выполняться только по документированной процедуре отката.
+
+## Stage D
+
+Файлы семьи лежат в `STORAGE_DIR` (по умолчанию `apps/api/.data/storage`). `scripts/backup.sh` архивирует этот каталог в `files.tar.gz` рядом с дампом БД, `scripts/restore.sh` возвращает его на место (старый каталог переименовывается в `*.pre-restore-*`). Дамп и файлы нужно снимать вместе: строки `files`/`file_versions` ссылаются на ключи хранилища. Локальный диск VPS резервной копией не является — используйте `AGE_RECIPIENT` и `BACKUP_REMOTE`.

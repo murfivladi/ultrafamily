@@ -1,4 +1,5 @@
 import type { Language } from '@ufos/contracts';
+import { stageDIt, stageDRu } from './i18n-stage-d';
 
 export type TranslationKey = string;
 
@@ -124,7 +125,7 @@ const ru: Record<TranslationKey, string> = {
   'spaceKind.household': 'Домохозяйство',
   'spaceKind.personal': 'Личное пространство',
   'stage.label': 'Внутренний этап {stage}',
-  'stage.current': 'Этап C · Общение и совместная работа',
+  'stage.current': 'Этап D · Файлы и память семьи',
 
   'public.eyebrow': 'Публичная витрина семьи',
   'public.heroTitle': 'Только то, чем семья решила поделиться',
@@ -154,7 +155,7 @@ const ru: Record<TranslationKey, string> = {
   'login.register': 'Создать аккаунт',
   'login.demoTitle': 'Демонстрационный доступ',
   'login.demoText':
-    'Этап C с демонстрационной семьёй, организационным ядром, общением и совместной работой и несколькими ролями. Пароль общий для демонстрационных аккаунтов.',
+    'Этап D с демонстрационной семьёй: организационное ядро, общение, файлы, галерея, дневники и семейная энциклопедия, несколько ролей. Пароль общий для демонстрационных аккаунтов.',
   'login.demoFill': 'Заполнить владельца',
   'login.demoOwner': 'Владелец',
   'login.demoAdult': 'Взрослый',
@@ -167,7 +168,7 @@ const ru: Record<TranslationKey, string> = {
 
   'dashboard.hello': 'Здравствуйте, {name}',
   'dashboard.subtitle':
-    'Этап C: календарь, задачи, уведомления, покупки, публикации и умная лента дополнены чатами, семейной лентой, решениями, совместными документами и звонками.',
+    'Этап D: к календарю, задачам, покупкам, чатам, ленте, решениям, документам и звонкам добавлены файлы с WebDAV, галерея, общий поиск, дневники, воспоминания и семейная энциклопедия.',
   'dashboard.overview': 'Обзор пространства',
   'dashboard.important': 'Важное сейчас',
   'dashboard.securityCard': 'Проверка безопасности',
@@ -617,6 +618,7 @@ const ru: Record<TranslationKey, string> = {
   'stageC.calls.host': 'Организатор',
   'stageC.calls.quality': 'Качество',
   'stageC.calls.latency': 'Задержка',
+  ...stageDRu,
 };
 
 const it: Record<TranslationKey, string> = {
@@ -741,7 +743,7 @@ const it: Record<TranslationKey, string> = {
   'spaceKind.household': 'Nucleo familiare',
   'spaceKind.personal': 'Spazio personale',
   'stage.label': 'Fase interna {stage}',
-  'stage.current': 'Fase C · Comunicazione e collaborazione',
+  'stage.current': 'Fase D · File e memoria di famiglia',
 
   'public.eyebrow': 'Vetrina pubblica della famiglia',
   'public.heroTitle': 'Solo ciò che la famiglia ha scelto di condividere',
@@ -771,7 +773,7 @@ const it: Record<TranslationKey, string> = {
   'login.register': 'Crea account',
   'login.demoTitle': 'Accesso dimostrativo',
   'login.demoText':
-    'Fase C con una famiglia di esempio, nucleo organizzativo, comunicazione e collaborazione e più ruoli. La password è condivisa dagli account dimostrativi.',
+    'Fase D con una famiglia di esempio: nucleo organizzativo, comunicazione, file, galleria, diari ed enciclopedia di famiglia, più ruoli. La password è condivisa dagli account dimostrativi.',
   'login.demoFill': 'Compila proprietario',
   'login.demoOwner': 'Proprietario',
   'login.demoAdult': 'Adulto',
@@ -784,7 +786,7 @@ const it: Record<TranslationKey, string> = {
 
   'dashboard.hello': 'Ciao, {name}',
   'dashboard.subtitle':
-    'Fase C: calendario, attività, notifiche, spesa, pubblicazioni e feed intelligente si uniscono a chat, bacheca di famiglia, decisioni, documenti condivisi e chiamate.',
+    'Fase D: a calendario, attività, spesa, chat, bacheca, decisioni, documenti e chiamate si aggiungono file con WebDAV, galleria, ricerca globale, diari, ricordi ed enciclopedia di famiglia.',
   'dashboard.overview': 'Panoramica dello spazio',
   'dashboard.important': 'Importante adesso',
   'dashboard.securityCard': 'Verifica di sicurezza',
@@ -1234,6 +1236,7 @@ const it: Record<TranslationKey, string> = {
   'stageC.calls.host': 'Organizzatore',
   'stageC.calls.quality': 'Qualità',
   'stageC.calls.latency': 'Latenza',
+  ...stageDIt,
 };
 
 const moduleNamesRu: Record<string, string> = {

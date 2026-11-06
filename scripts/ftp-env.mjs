@@ -11,8 +11,8 @@ const clean = (value) =>
     .replace(/[\r\n]+/g, ' ')
     .trim();
 const version =
-  clean(process.env.RELEASE_VERSION || '0.1.0-stage-c').replace(/[^A-Za-z0-9._-]+/g, '-') ||
-  '0.1.0-stage-c';
+  clean(process.env.RELEASE_VERSION || '0.1.0-stage-d').replace(/[^A-Za-z0-9._-]+/g, '-') ||
+  '0.1.0-stage-d';
 const appOrigin = clean(process.env.APP_ORIGIN);
 const apiProxyOrigin = clean(process.env.API_PROXY_ORIGIN || 'http://127.0.0.1:25031');
 const bootstrapOwnerEmail = clean(process.env.BOOTSTRAP_OWNER_EMAIL || 'owner@ultra.family');

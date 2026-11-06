@@ -1,6 +1,6 @@
 {
   "name": "@ufos/web",
-  "version": "0.1.0-stage-c",
+  "version": "0.1.0-stage-d",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",

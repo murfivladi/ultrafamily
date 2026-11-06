@@ -31,7 +31,7 @@ services:
       BOOTSTRAP_OWNER_EMAIL: ${BOOTSTRAP_OWNER_EMAIL:-owner@ultra.family}
       BOOTSTRAP_OWNER_PASSWORD: ${BOOTSTRAP_OWNER_PASSWORD:?BOOTSTRAP_OWNER_PASSWORD is required}
       APP_ORIGIN: ${APP_ORIGIN:-}
-      APP_VERSION: ${APP_VERSION:-0.1.0-stage-c}
+      APP_VERSION: ${APP_VERSION:-0.1.0-stage-d}
       # WebRTC: set both to enable TURN relay for complicated NATs.
       WEBRTC_STUN_URLS: ${WEBRTC_STUN_URLS:-stun:stun.l.google.com:19302}
       WEBRTC_TURN_URLS: ${WEBRTC_TURN_URLS:-}

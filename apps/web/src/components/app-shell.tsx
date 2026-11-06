@@ -139,14 +139,60 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       },
       { id: 'calls', href: '/calls', icon: 'Video', label: t('modules.calls'), module: 'calls' },
     ];
+    const stageDItems: NavItem[] = [
+      {
+        id: 'files',
+        href: '/files',
+        icon: 'FolderOpen',
+        label: t('modules.files'),
+        module: 'files',
+      },
+      {
+        id: 'photos',
+        href: '/photos',
+        icon: 'Images',
+        label: t('modules.photos'),
+        module: 'photos',
+      },
+      {
+        id: 'search',
+        href: '/search',
+        icon: 'Search',
+        label: t('modules.search'),
+        module: 'search',
+      },
+      {
+        id: 'journal',
+        href: '/journal',
+        icon: 'BookHeart',
+        label: t('modules.journal'),
+        module: 'journal',
+      },
+      {
+        id: 'memories',
+        href: '/memories',
+        icon: 'Sparkles',
+        label: t('modules.memories'),
+        module: 'memories',
+      },
+      {
+        id: 'encyclopedia',
+        href: '/encyclopedia',
+        icon: 'Network',
+        label: t('modules.encyclopedia'),
+        module: 'encyclopedia',
+      },
+    ];
     const permissions = new Set(snapshot?.permissions ?? []);
-    const allowedStageB = [...stageBItems, ...stageCItems].filter((item) =>
+    const allowedStageB = [...stageBItems, ...stageCItems, ...stageDItems].filter((item) =>
       permissions.has(`${item.module}:read`),
     );
     const simplified = preferences.simplifiedUi || snapshot?.user.isChild;
     const visibleStageB = simplified
       ? allowedStageB.filter((item) =>
-          ['calendar', 'tasks', 'shopping', 'messenger', 'feed'].includes(item.id),
+          ['calendar', 'tasks', 'shopping', 'messenger', 'feed', 'photos', 'journal'].includes(
+            item.id,
+          ),
         )
       : allowedStageB;
     const items = [...coreItems, ...visibleStageB];
@@ -165,6 +211,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             'shopping',
             'messenger',
             'feed',
+            'photos',
+            'journal',
           ].includes(item.id),
         )
       : items;
@@ -286,7 +334,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            router.push(`/catalog?q=${encodeURIComponent(search)}`);
+            // Stage D: the sidebar box searches family content when allowed,
+            // otherwise it filters the module catalog as before.
+            const contentSearch =
+              snapshot.permissions.includes('search:read') && search.trim().length >= 2;
+            router.push(
+              contentSearch
+                ? `/search?q=${encodeURIComponent(search.trim())}`
+                : `/catalog?q=${encodeURIComponent(search)}`,
+            );
           }}
         >
           <Lucide.Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
