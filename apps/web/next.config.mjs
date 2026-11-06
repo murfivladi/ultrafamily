@@ -50,6 +50,15 @@ const nextConfig = {
   // Yjs is compiled for both the client and the server graph so exactly one
   // module instance exists (see the webpack alias below).
   transpilePackages: ['@ufos/contracts', 'yjs'],
+  experimental: {
+    // Next 15.5 promotes every prerendered page into
+    // .next/server/app/route-cache/ on first request and from then on serves
+    // that copy instead of the build output. FTP deploys never delete remote
+    // files, so the copy survived every release and the site kept showing an
+    // old build (Stage B) after the new one was uploaded. Keep the runtime
+    // cache in memory only; a restart then always serves the deployed build.
+    isrFlushToDisk: false,
+  },
   // Yjs ships both CJS and ESM builds. Without a single resolution path the
   // SSR and client graph can load two copies, which breaks `instanceof` checks
   // ("Yjs was already imported"). Pin one module and ask Next to compile it.
