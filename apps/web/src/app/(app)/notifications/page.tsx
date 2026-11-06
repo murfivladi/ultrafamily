@@ -234,7 +234,7 @@ export default function NotificationsPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('modules.notifications')}
         description={t('stageB.notifications.subtitle')}
         action={

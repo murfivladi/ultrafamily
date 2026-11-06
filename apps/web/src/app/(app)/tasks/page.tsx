@@ -219,7 +219,7 @@ export default function TasksPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('modules.tasks')}
         description={t('stageB.tasks.subtitle')}
         action={

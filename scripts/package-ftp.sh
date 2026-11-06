@@ -28,6 +28,9 @@ if [ "$API_PROXY_ORIGIN" = 'https://api.family.vladislavb.qzz.io' ]; then
   exit 1
 fi
 
+# Inlined into the browser bundle and shown in the sidebar, so the running
+# frontend build can be compared with the deployed release at a glance.
+export NEXT_PUBLIC_APP_VERSION="$VERSION"
 echo "Building contracts, API and web application for FTP release $VERSION..."
 echo "Frontend internal API origin: $API_PROXY_ORIGIN"
 npm run build
@@ -154,7 +157,8 @@ EOF
 cat > "$BACKEND/ENV-SETUP.txt" <<'EOF'
 Backend .env — edit ./.env in the backend FTP root
 
-The workflow already added these generated keys; do not duplicate them:
+The workflow already added these generated keys; do not duplicate them
+(APP_VERSION is refreshed on every deploy, the others are never overwritten):
   NODE_ENV, APP_VERSION, SESSION_SECRET, BOOTSTRAP_OWNER_PASSWORD,
   BOOTSTRAP_OWNER_EMAIL, API_PORT=25031, DB_DRIVER, DATABASE_SSL, DB_POOL_SIZE,
   PGLITE_DATA_DIR, SEED_DEMO_DATA, and APP_ORIGIN if the GitHub variable exists.
@@ -186,7 +190,8 @@ EOF
 cat > "$FRONTEND/ENV-SETUP.txt" <<'EOF'
 Frontend .env — edit ./.env in the frontend FTP root
 
-The workflow already added these generated keys; do not duplicate them:
+The workflow already added these generated keys; do not duplicate them
+(APP_VERSION is refreshed on every deploy, the others are never overwritten):
   NODE_ENV, APP_VERSION, PORT=26287, WEB_PORT=26287, NEXT_PUBLIC_DEMO_PASSWORD,
   API_PROXY_ORIGIN=http://127.0.0.1:25031,
   APP_ORIGIN if the GitHub variable exists.

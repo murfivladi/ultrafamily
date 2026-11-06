@@ -124,6 +124,7 @@ const ru: Record<TranslationKey, string> = {
   'spaceKind.household': 'Домохозяйство',
   'spaceKind.personal': 'Личное пространство',
   'stage.label': 'Внутренний этап {stage}',
+  'stage.current': 'Этап C · Общение и совместная работа',
 
   'public.eyebrow': 'Публичная витрина семьи',
   'public.heroTitle': 'Только то, чем семья решила поделиться',
@@ -153,7 +154,7 @@ const ru: Record<TranslationKey, string> = {
   'login.register': 'Создать аккаунт',
   'login.demoTitle': 'Демонстрационный доступ',
   'login.demoText':
-    'Этап B с демонстрационной семьёй, организационным ядром и несколькими ролями. Пароль общий для демонстрационных аккаунтов.',
+    'Этап C с демонстрационной семьёй, организационным ядром, общением и совместной работой и несколькими ролями. Пароль общий для демонстрационных аккаунтов.',
   'login.demoFill': 'Заполнить владельца',
   'login.demoOwner': 'Владелец',
   'login.demoAdult': 'Взрослый',
@@ -166,7 +167,7 @@ const ru: Record<TranslationKey, string> = {
 
   'dashboard.hello': 'Здравствуйте, {name}',
   'dashboard.subtitle':
-    'Организационное ядро Stage B: календарь, задачи, уведомления, покупки, публикации и умная лента работают в активном пространстве.',
+    'Этап C: календарь, задачи, уведомления, покупки, публикации и умная лента дополнены чатами, семейной лентой, решениями, совместными документами и звонками.',
   'dashboard.overview': 'Обзор пространства',
   'dashboard.important': 'Важное сейчас',
   'dashboard.securityCard': 'Проверка безопасности',
@@ -740,6 +741,7 @@ const it: Record<TranslationKey, string> = {
   'spaceKind.household': 'Nucleo familiare',
   'spaceKind.personal': 'Spazio personale',
   'stage.label': 'Fase interna {stage}',
+  'stage.current': 'Fase C · Comunicazione e collaborazione',
 
   'public.eyebrow': 'Vetrina pubblica della famiglia',
   'public.heroTitle': 'Solo ciò che la famiglia ha scelto di condividere',
@@ -769,7 +771,7 @@ const it: Record<TranslationKey, string> = {
   'login.register': 'Crea account',
   'login.demoTitle': 'Accesso dimostrativo',
   'login.demoText':
-    'Fase B con una famiglia di esempio, nucleo organizzativo e più ruoli. La password è condivisa dagli account dimostrativi.',
+    'Fase C con una famiglia di esempio, nucleo organizzativo, comunicazione e collaborazione e più ruoli. La password è condivisa dagli account dimostrativi.',
   'login.demoFill': 'Compila proprietario',
   'login.demoOwner': 'Proprietario',
   'login.demoAdult': 'Adulto',
@@ -782,7 +784,7 @@ const it: Record<TranslationKey, string> = {
 
   'dashboard.hello': 'Ciao, {name}',
   'dashboard.subtitle':
-    'Nucleo organizzativo della Fase B: calendario, attività, notifiche, spesa, pubblicazioni e feed intelligente nello spazio attivo.',
+    'Fase C: calendario, attività, notifiche, spesa, pubblicazioni e feed intelligente si uniscono a chat, bacheca di famiglia, decisioni, documenti condivisi e chiamate.',
   'dashboard.overview': 'Panoramica dello spazio',
   'dashboard.important': 'Importante adesso',
   'dashboard.securityCard': 'Verifica di sicurezza',

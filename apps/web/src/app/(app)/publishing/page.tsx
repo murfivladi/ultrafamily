@@ -170,7 +170,7 @@ export default function PublishingPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('stageB.badge')}
+        eyebrow={t('stage.current')}
         title={t('modules.public_site')}
         description={t('stageB.publishing.subtitle')}
         action={
