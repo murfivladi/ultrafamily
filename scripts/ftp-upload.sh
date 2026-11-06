@@ -230,6 +230,11 @@ echo "Uploading contents of $UPLOAD_SOURCE into FTP root ./ ..."
 {
   lftp_common
   printf '%s\n' 'cd ./' "lcd \"$UPLOAD_SOURCE\""
+  if [[ "$FTP_TARGET" == 'frontend' ]]; then
+    # Runtime page cache written by older builds (isrFlushToDisk). Next serves
+    # it in preference to the uploaded build, so a stale copy hides releases.
+    printf '%s\n' 'rm -r -f apps/web/.next/server/app/route-cache'
+  fi
   if [[ "$UPLOAD_MODE" == 'full' || -n "$(find "$UPLOAD_SOURCE" -type f -print -quit)" ]]; then
     printf '%s\n' "mirror -R --no-perms --no-umask --parallel=$FTP_PARALLEL $MIRROR_FLAGS --verbose $MIRROR_EXCLUDES"
   fi
