@@ -103,7 +103,9 @@ Stage C добавляет второй протокол на том же fronte
 - `/api/*` — обычные HTTP-запросы (как раньше);
 - `/ws` — WebSocket-соединение к NestJS (`CollaborationGateway`).
 
-HTTP-реврайт Next.js не умеет upgrade соединения, поэтому нужен один из двух вариантов:
+Next.js (в том числе standalone `server.js` на frontend-хостинге) проксирует `Upgrade: websocket` только для rewrite на внешний origin. Поэтому в `next.config.mjs` есть rewrite `/ws → ${API_PROXY_ORIGIN}/ws`: на production ничего дополнительно запускать не нужно, `/ws` работает на том же порту `26287`, что и сайт. Без этого правила Next.js принимал upgrade-запрос, не отвечал на него, и в «Звонках» статус сигналинга вечно оставался `WebSocket · connecting`. Клиент дополнительно обрывает рукопожатие через 10 секунд и переподключается с backoff.
+
+Альтернативы (если перед Next.js стоит собственный reverse proxy):
 
 1. **Отдельный прокси `scripts/ws-proxy.mjs`** (`npm run start:ws`). Он слушает `WS_PUBLIC_PORT` (по умолчанию `26288`), передаёт обычный HTTP в Next.js и `Upgrade: websocket` на `/ws` — в API (`WS_API_HOST`/`WS_API_PORT`). В dev/preview режиме этот прокси запускается вместе с `npm run dev`.
 2. **Правило в reverse proxy** (предпочтительно в production): `location /ws { proxy_pass http://127.0.0.1:25031; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; proxy_set_header Host $host; proxy_read_timeout 3600s; }` и проксирование остального на Next.js.

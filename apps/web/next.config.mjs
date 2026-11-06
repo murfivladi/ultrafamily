@@ -69,13 +69,19 @@ const nextConfig = {
     };
     return webpackConfig;
   },
-  // The Stage C collaboration gateway lives at /ws on the API process. HTTP
-  // rewrites cannot upgrade a connection, so the WebSocket path is proxied by
-  // the small server in scripts/ws-proxy.mjs during development and by the
-  // reverse proxy in production (see docs/STAGE-C.md).
+  // The Stage C collaboration gateway lives at /ws on the API process. The
+  // Next.js server (including the standalone server.js used in production)
+  // proxies `Upgrade: websocket` requests only when a rewrite points them at an
+  // external origin; without this rule Next leaves the upgraded socket hanging
+  // and the browser stays in "connecting" forever. scripts/ws-proxy.mjs and a
+  // reverse-proxy `location /ws` rule remain valid alternatives.
   async rewrites() {
     const apiOrigin = configuredApiOrigin;
     return [
+      {
+        source: '/ws',
+        destination: `${apiOrigin}/ws`,
+      },
       {
         source: '/caldav/:path*',
         destination: `${apiOrigin}/api/caldav/:path*`,

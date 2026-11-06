@@ -9,6 +9,8 @@ export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecti
 
 type Handler = (message: CollaborationServerMessage) => void;
 
+const HANDSHAKE_TIMEOUT_MS = 10_000;
+
 interface SocketOptions {
   spaceId: string;
   topics: string[];
@@ -32,6 +34,7 @@ class CollaborationSocket {
   private attempt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private openTimer: ReturnType<typeof setTimeout> | null = null;
   private handlers = new Set<Handler>();
   private statusHandlers = new Set<(status: ConnectionStatus) => void>();
   private status: ConnectionStatus = 'idle';
@@ -53,7 +56,16 @@ class CollaborationSocket {
       return;
     }
     this.socket = socket;
+    // A proxy that accepts the TCP connection but never answers the upgrade
+    // would otherwise keep the socket in CONNECTING forever. Give up after a
+    // bounded handshake window and go through the normal reconnect path.
+    if (this.openTimer) clearTimeout(this.openTimer);
+    this.openTimer = setTimeout(() => {
+      if (socket.readyState === WebSocket.CONNECTING) socket.close();
+    }, HANDSHAKE_TIMEOUT_MS);
     socket.onopen = () => {
+      if (this.openTimer) clearTimeout(this.openTimer);
+      this.openTimer = null;
       this.attempt = 0;
       this.setStatus('connected');
       this.sendRaw({
@@ -78,6 +90,8 @@ class CollaborationSocket {
       for (const handler of this.handlers) handler(message);
     };
     socket.onclose = () => {
+      if (this.openTimer) clearTimeout(this.openTimer);
+      this.openTimer = null;
       this.stopPing();
       this.socket = null;
       if (this.closed) return;
@@ -146,6 +160,7 @@ class CollaborationSocket {
   close(): void {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
+    if (this.openTimer) clearTimeout(this.openTimer);
     this.stopPing();
     this.socket?.close(1000, 'client_close');
     this.socket = null;
