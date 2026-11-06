@@ -27,6 +27,9 @@
 - загрузка без `SITE CHMOD`/`MFF`: права файлов задаёт сервер, workflow не меняет permissions;
 - GitHub Artifact включает hidden files: `.next/`, `.env.example`, `.nvmrc`; `lftp` использует `ftp:list-options -a`;
 - `.next/cache/` и `*.pack` не загружаются: это build cache Next.js, не runtime; уже загруженный кэш удалите на FTP вручную;
+- **инкрементальная загрузка**: в корне FTP хранится `.ufos-deploy-manifest` (SHA-256 всех файлов payload'а). Следующий деплой скачивает его и заливает только изменённые/новые файлы, поэтому неизменный `node_modules` фронтенда (~1800 файлов, каждый — отдельное FTPS-соединение) больше не загружается заново. Манифест пишется последним: прерванная загрузка при следующем запуске будет дозалита. Если файлы на FTP меняли или удаляли вручную, запустите workflow с `full_upload: true`;
+- параллельность `mirror` — `FTP_PARALLEL` (GitHub Variable, по умолчанию `8`); уменьшите, если хостинг ограничивает число соединений;
+- из standalone-`node_modules` фронтенда удаляются build-only пакеты (`webpack`, `terser`, `esbuild`, `typescript`, `sharp`/`@img` и т.п.): ~3500 → ~1850 файлов, ~119 → ~41 МБ;
 - переменные и секреты GitHub описаны в [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 Workflow загружает **содержимое** двух GitHub Artifact напрямую в корень `./` каждого FTP-аккаунта; локальная папка `payload/` runner'а на FTP не создаётся. Старую `./artifact/` от предыдущих запусков удалите вручную: `mirror -R` не использует `--delete`.
