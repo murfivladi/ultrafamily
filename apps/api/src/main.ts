@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import cookieParser from 'cookie-parser';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { AppLogger } from './common/app-logger.service';
 import { config } from './config';
+import { configureHttp } from './http';
 
 function securityHeaders(request: Request, response: Response, next: NextFunction): void {
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -22,21 +22,7 @@ async function bootstrap(): Promise<void> {
     bodyParser: false,
   });
   app.set('trust proxy', 1);
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '64kb' }));
-  app.use(
-    express.text({
-      type: [
-        'text/calendar',
-        'application/calendar+xml',
-        'text/xml',
-        'application/xml',
-        'text/plain',
-      ],
-      limit: '1mb',
-    }),
-  );
-  app.use(cookieParser());
+  configureHttp(app);
   app.use(securityHeaders);
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();

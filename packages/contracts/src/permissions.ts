@@ -133,6 +133,9 @@ const childMap: CapabilityMap = {
     coreMember,
   ),
   ...capabilities(['feed', 'documents', 'journal', 'memories', 'school'], coreMember),
+  // Children see family photos and can search what they already may read;
+  // personal file storage and the encyclopedia stay with adults.
+  ...capabilities(['photos', 'search'], coreRead),
   // Children talk to their family in chats they were added to and take part in
   // family decisions, but they cannot moderate, publish or create channels.
   ...capabilities(['messenger', 'decisions'], coreRead),

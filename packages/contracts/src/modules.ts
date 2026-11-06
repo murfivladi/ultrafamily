@@ -65,8 +65,8 @@ export interface ModuleDefinition {
     | 'system';
 }
 
-// Modules available in the current internal foundation. Stage B extends the
-// Stage A base with the organizational core; "planned" modules remain roadmap.
+// Modules available in the current internal build (stages A–D); "planned"
+// modules remain roadmap.
 const foundationModules = new Set<ModuleId>([
   'dashboard',
   'catalog',
@@ -86,6 +86,13 @@ const foundationModules = new Set<ModuleId>([
   'decisions',
   'documents',
   'calls',
+  // Stage D — files and family memory.
+  'files',
+  'photos',
+  'search',
+  'journal',
+  'memories',
+  'encyclopedia',
 ]);
 
 const sensitiveModules = new Set<ModuleId>([

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 
 function loadEnvFile(filename: string): void {
   if (!existsSync(filename)) return;
@@ -57,7 +58,7 @@ export const config = {
   port: Number(process.env.API_PORT || 25031),
   isProduction,
   isTest,
-  version: process.env.APP_VERSION || '0.1.0-stage-c',
+  version: process.env.APP_VERSION || '0.1.0-stage-d',
   databaseUrl,
   driver,
   pgliteDataDir: process.env.PGLITE_DATA_DIR || path.join(process.cwd(), '.data', 'pglite'),
@@ -66,11 +67,40 @@ export const config = {
   bootstrapOwnerEmail: (process.env.BOOTSTRAP_OWNER_EMAIL || 'owner@ultra.family').toLowerCase(),
   bootstrapOwnerPassword:
     process.env.BOOTSTRAP_OWNER_PASSWORD || (isProduction ? '' : 'FamilyOS!2026'),
+  storage: {
+    driver: (process.env.STORAGE_DRIVER || 'local') as 'local' | 's3',
+    dir:
+      process.env.STORAGE_DIR ||
+      (isTest
+        ? path.join(os.tmpdir(), `ufos-storage-test-${process.pid}-${Date.now()}`)
+        : path.join(process.cwd(), '.data', 'storage')),
+    spaceQuotaBytes: Number(process.env.STORAGE_SPACE_QUOTA_BYTES || 20 * 1024 ** 3),
+    userQuotaBytes: Number(process.env.STORAGE_USER_QUOTA_BYTES || 10 * 1024 ** 3),
+    maxFileBytes: Number(process.env.STORAGE_MAX_FILE_BYTES || 4 * 1024 ** 3),
+    chunkBytes: Number(process.env.STORAGE_CHUNK_BYTES || 4 * 1024 ** 2),
+    minFreeBytes: Number(process.env.STORAGE_MIN_FREE_BYTES || 2 * 1024 ** 3),
+    trashRetentionDays: Number(process.env.STORAGE_TRASH_RETENTION_DAYS || 30),
+  },
+  media: {
+    // Optional local engines. `{input}` is replaced by the file path; commands
+    // are executed without a shell, with a timeout and bounded output.
+    ocrCommand: process.env.OCR_COMMAND || '',
+    antivirusCommand: process.env.ANTIVIRUS_COMMAND || '',
+    videoProbeCommand: process.env.VIDEO_PROBE_COMMAND || '',
+    faceEngineCommand: process.env.FACE_ENGINE_COMMAND || '',
+    queueIntervalMs: Number(process.env.MEDIA_QUEUE_INTERVAL_MS || (isTest ? 0 : 5000)),
+    queueConcurrency: Math.max(1, Number(process.env.MEDIA_QUEUE_CONCURRENCY || 1)),
+    commandTimeoutMs: Number(process.env.MEDIA_COMMAND_TIMEOUT_MS || 120_000),
+  },
   appOrigins: (process.env.APP_ORIGIN || '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean),
 } as const;
+
+if (config.storage.driver !== 'local' && config.storage.driver !== 's3') {
+  throw new Error('STORAGE_DRIVER must be local or s3');
+}
 
 if (isProduction && !config.bootstrapOwnerPassword) {
   throw new Error('BOOTSTRAP_OWNER_PASSWORD is required for first production bootstrap');

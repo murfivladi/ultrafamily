@@ -1,7 +1,10 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { FOUNDATION_MODULE_IDS, MODULE_IDS } from '@ufos/contracts';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { config, newId, sha256 } from '../config';
 import { PasswordService } from '../common/password.service';
+import crypto from 'node:crypto';
 import { DatabaseService, type Queryable } from './database.service';
 
 const DEMO_INVITE_TOKEN = 'WELCOME-UFOS-2026';
@@ -482,6 +485,7 @@ export class SeedService implements OnModuleInit {
         secondHouseholdId,
         now,
       });
+      await seedStageD(tx, { ownerId, childId, householdId, now });
     });
   }
 }
@@ -656,4 +660,238 @@ async function seedStageC(tx: Queryable, input: StageCSeedInput): Promise<void> 
     otherChatId,
     adultId,
   ]);
+}
+
+interface StageDSeedInput {
+  ownerId: string;
+  childId: string;
+  householdId: string;
+  now: string;
+}
+
+// 1×1 PNG, enough to demonstrate the gallery without bundling real photos.
+const DEMO_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+/**
+ * Demonstration content for Stage D (files, gallery, journal, encyclopedia).
+ * Binary blobs are written straight to the local storage directory; like the
+ * rest of the demo this never runs in production.
+ */
+async function seedStageD(tx: Queryable, input: StageDSeedInput): Promise<void> {
+  const { ownerId, childId, householdId, now } = input;
+  const writeBlob = (key: string, data: Buffer) => {
+    const target = path.join(config.storage.dir, key);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, data);
+  };
+  const hash = (data: Buffer) => crypto.createHash('sha256').update(data).digest('hex');
+
+  const archiveId = newId('fld');
+  const galleryId = newId('fld');
+  await tx.query(
+    `INSERT INTO file_folders (id, space_id, parent_id, name, created_by, created_at, updated_at)
+     VALUES ($1,$3,NULL,'Семейный архив',$4,$5,$5), ($2,$3,NULL,'Галерея',$4,$5,$5)`,
+    [archiveId, galleryId, householdId, ownerId, now],
+  );
+
+  const recipe = Buffer.from(
+    'Рецепт бабушки Анны: сицилийская капоната.\nБаклажаны, сельдерей, каперсы, оливки, томаты.\nТушить на медленном огне 40 минут.\n',
+    'utf8',
+  );
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setUTCFullYear(twoYearsAgo.getUTCFullYear() - 2);
+  const files: Array<{
+    name: string;
+    folder: string;
+    data: Buffer;
+    kind: string;
+    mime: string;
+    text: string;
+    takenAt: string | null;
+    place: string;
+    description: string;
+  }> = [
+    {
+      name: 'Рецепт бабушки.txt',
+      folder: archiveId,
+      data: recipe,
+      kind: 'text',
+      mime: 'text/plain; charset=utf-8',
+      text: recipe.toString('utf8'),
+      takenAt: null,
+      place: '',
+      description: 'Семейный рецепт',
+    },
+    {
+      name: 'Море.png',
+      folder: galleryId,
+      data: DEMO_PNG,
+      kind: 'image',
+      mime: 'image/png',
+      text: '',
+      takenAt: twoYearsAgo.toISOString(),
+      place: 'Монделло, Палермо',
+      description: 'Первый день на море',
+    },
+  ];
+  const fileIds: string[] = [];
+  for (const file of files) {
+    const id = newId('fil');
+    const key = `${householdId}/${id}/v1-demo`;
+    writeBlob(key, file.data);
+    const digest = hash(file.data);
+    await tx.query(
+      `INSERT INTO files (id, space_id, folder_id, name, extension, mime_type, kind, size_bytes, sha256,
+         storage_key, scan_status, scan_detail, ocr_status, ocr_text, metadata, taken_at, place, description,
+         created_by, updated_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'unscanned','antivirus_not_configured',$11,$12,$13,$14,$15,$16,$17,$17,$18,$18)`,
+      [
+        id,
+        householdId,
+        file.folder,
+        file.name,
+        file.name.split('.').pop() ?? '',
+        file.mime,
+        file.kind,
+        file.data.length,
+        digest,
+        key,
+        file.text ? 'done' : 'none',
+        file.text,
+        JSON.stringify(file.kind === 'image' ? { width: 1, height: 1 } : {}),
+        file.takenAt,
+        file.place,
+        file.description,
+        ownerId,
+        now,
+      ],
+    );
+    await tx.query(
+      `INSERT INTO file_versions (id, file_id, space_id, version, size_bytes, sha256, mime_type, storage_key,
+         note, created_by, created_at) VALUES ($1,$2,$3,1,$4,$5,$6,$7,'seed',$8,$9)`,
+      [newId('fvr'), id, householdId, file.data.length, digest, file.mime, key, ownerId, now],
+    );
+    fileIds.push(id);
+  }
+  const photoId = fileIds[1]!;
+
+  const albumId = newId('alb');
+  await tx.query(
+    `INSERT INTO photo_albums (id, space_id, title, description, cover_file_id, created_by, created_at, updated_at)
+     VALUES ($1,$2,'Лето в Палермо','Море, рынок и бабушкин сад',$3,$4,$5,$5)`,
+    [albumId, householdId, photoId, ownerId, now],
+  );
+  await tx.query(
+    `INSERT INTO photo_album_items (album_id, file_id, position, added_by) VALUES ($1,$2,1,$3)`,
+    [albumId, photoId, ownerId],
+  );
+  await tx.query(
+    `INSERT INTO media_comments (id, space_id, file_id, author_user_id, body, created_at)
+     VALUES ($1,$2,$3,$4,'Какое синее море!',$5)`,
+    [newId('mcm'), householdId, photoId, childId, now],
+  );
+
+  const grandma = newId('per');
+  const grandpa = newId('per');
+  const owner = newId('per');
+  const child = newId('per');
+  const people: Array<
+    [string, string, string | null, string | null, string, string, string | null]
+  > = [
+    [
+      grandma,
+      'Анна Палермо',
+      '1940-03-12',
+      '2019-11-02',
+      'Палермо',
+      'Хранительница семейных рецептов и историй.',
+      null,
+    ],
+    [
+      grandpa,
+      'Иван Палермо',
+      '1938-07-21',
+      null,
+      'Катания',
+      'Инженер, любит рыбалку и шахматы.',
+      null,
+    ],
+    [owner, 'Владелец платформы', '1975-05-05', null, 'Палермо', '', ownerId],
+    [child, 'Ребёнок', '2014-09-01', null, 'Палермо', '', childId],
+  ];
+  for (const [id, name, birth, death, place, bio, linked] of people) {
+    await tx.query(
+      `INSERT INTO family_people (id, space_id, full_name, birth_date, death_date, birth_place, biography,
+         contacts, contact_visibility, visibility, linked_user_id, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'adults','family',$9,$10,$11,$11)`,
+      [
+        id,
+        householdId,
+        name,
+        birth,
+        death,
+        place,
+        bio,
+        JSON.stringify(id === grandpa ? { phone: '+39 091 000 0000' } : {}),
+        linked,
+        ownerId,
+        now,
+      ],
+    );
+  }
+  const relations: Array<[string, string, string]> = [
+    [grandma, grandpa, 'spouse'],
+    [grandma, owner, 'parent'],
+    [grandpa, owner, 'parent'],
+    [owner, child, 'parent'],
+  ];
+  for (const [a, b, kind] of relations) {
+    await tx.query(
+      `INSERT INTO family_relations (id, space_id, person_id, related_person_id, kind, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [
+        newId('rel'),
+        householdId,
+        a < b || kind === 'parent' ? a : b,
+        a < b || kind === 'parent' ? b : a,
+        kind,
+        ownerId,
+      ],
+    );
+  }
+  await tx.query(
+    `INSERT INTO media_people_tags (id, space_id, file_id, person_id, label, created_by)
+     VALUES ($1,$2,$3,$4,'',$5)`,
+    [newId('mpt'), householdId, photoId, child, ownerId],
+  );
+
+  const storyId = newId('jrn');
+  await tx.query(
+    `INSERT INTO journal_entries (id, space_id, author_user_id, kind, title, body, visibility, entry_date,
+       tags, file_ids, person_ids, shared_at, created_at, updated_at)
+     VALUES
+      ($1,$3,$4,'story','Как бабушка учила готовить капонату',
+       'Каждое лето бабушка Анна собирала всех на кухне и рассказывала, почему баклажаны нельзя торопить.',
+       'family','2018-08-15','["рецепты","бабушка"]',$5,$6,$7,$7,$7),
+      ($2,$3,$4,'diary','Личная запись',
+       'Это личный дневник: его видит только автор, даже администраторы пространства.',
+       'private',CURRENT_DATE,'[]','[]','[]',NULL,$7,$7)`,
+    [
+      storyId,
+      newId('jrn'),
+      householdId,
+      ownerId,
+      JSON.stringify([fileIds[0]]),
+      JSON.stringify([grandma]),
+      now,
+    ],
+  );
+  await tx.query(
+    `INSERT INTO family_person_links (person_id, space_id, target_kind, target_id, created_by)
+     VALUES ($1,$2,'journal',$3,$4), ($1,$2,'file',$5,$4)`,
+    [grandma, householdId, storyId, ownerId, fileIds[0]],
+  );
 }

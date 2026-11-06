@@ -1,10 +1,9 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import cookieParser from 'cookie-parser';
-import express from 'express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureHttp } from '../src/http';
 
 export interface TestAccount {
   agent: ReturnType<typeof request.agent>;
@@ -21,20 +20,7 @@ export async function createTestApp(): Promise<INestApplication> {
     logger: false,
     bodyParser: false,
   });
-  app.use(express.json({ limit: '1mb' }));
-  app.use(
-    express.text({
-      type: [
-        'text/calendar',
-        'application/calendar+xml',
-        'text/xml',
-        'application/xml',
-        'text/plain',
-      ],
-      limit: '1mb',
-    }),
-  );
-  app.use(cookieParser());
+  configureHttp(app);
   app.setGlobalPrefix('api');
   await app.init();
   return app;

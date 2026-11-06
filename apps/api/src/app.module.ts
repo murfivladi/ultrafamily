@@ -11,6 +11,12 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DecisionsModule } from './decisions/decisions.module';
 import { DocumentsModule } from './documents/documents.module';
 import { FeedModule } from './feed/feed.module';
+import { EncyclopediaModule } from './encyclopedia/encyclopedia.module';
+import { FilesModule } from './files/files.module';
+import { JournalModule } from './journal/journal.module';
+import { MemoriesModule } from './memories/memories.module';
+import { PhotosModule } from './photos/photos.module';
+import { SearchModule } from './search/search.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { MessengerModule } from './messenger/messenger.module';
@@ -21,6 +27,7 @@ import { PublishingModule } from './publishing/publishing.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { ShoppingModule } from './shopping/shopping.module';
 import { SpacesModule } from './spaces/spaces.module';
+import { StorageModule } from './storage/storage.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
@@ -33,6 +40,7 @@ import { UsersModule } from './users/users.module';
     AccessModule,
     RealtimeModule,
     NotificationsModule,
+    StorageModule,
 
     // Public and account foundation.
     HealthModule,
@@ -59,6 +67,14 @@ import { UsersModule } from './users/users.module';
     DocumentsModule,
     CallsModule,
     CollaborationModule,
+
+    // Stage D files and family memory.
+    FilesModule,
+    PhotosModule,
+    SearchModule,
+    JournalModule,
+    MemoriesModule,
+    EncyclopediaModule,
   ],
 })
 export class AppModule {}
