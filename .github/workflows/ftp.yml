@@ -119,6 +119,11 @@ jobs:
           test -d "$frontend/apps/web/public"
           test ! -e "$frontend/apps/web/.next/cache"
           test -z "$(find "$frontend" -type f -name '*.pack' -print -quit)"
+          # Standalone has no `next` CLI: npm start must run server.js.
+          if grep -q 'next start' "$frontend/package.json" "$frontend/apps/web/package.json"; then
+            echo 'Frontend payload start script still calls `next start` (sh: next: not found).' >&2
+            exit 1
+          fi
           echo "Frontend payload: $(find "$frontend" -type f | wc -l) files, $(du -sh "$frontend" | cut -f1)"
           if grep -Rqs 'https://api.family.vladislavb.qzz.io' "$frontend/apps/web/.next"; then
             echo 'External HTTPS API origin is baked into .next; use http://127.0.0.1:25031 to avoid EPROTO.' >&2
